@@ -1,0 +1,24 @@
+# GTKWave
+*.vcd*
+*.gtkw
+
+# Object files
+*.o
+*.riscv*
+*.elf
+
+# dump files
+*.hex
+*.dump
+
+# python files (byte-compiled)
+__pycache__/
+*.py[cod]
+.cache/
+
+# build folders
+build/
+output/
+
+# extra output files
+*.html
