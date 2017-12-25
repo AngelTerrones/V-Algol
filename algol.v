@@ -181,7 +181,6 @@ module algol #(
     reg [31:0]  csr_wdata;
     reg         csr_wcmd, csr_scmd, csr_ccmd; // CSR commands: read/write, set, clear
     reg         exception, interrupt, trap_valid;
-    reg         valid_instr, done;
     // for memory access
     reg [31:0]  mdat_o, mdat_i, ld_addr, st_addr;
     reg [3:0]   msel_o;
@@ -263,7 +262,6 @@ module algol #(
             is_shift    <= 1'h0;
             is_xor      <= 1'h0;
             rd          <= 5'h0;
-            valid_instr <= 1'h0;
             // End of automatics
             // verilator lint_off BLKSEQ
         end else if (latch_instruction) begin
@@ -331,11 +329,6 @@ module algol #(
             is_csr      <= |{inst_csrrw, inst_csrrs, inst_csrrc, inst_csrrwi, inst_csrrsi, inst_csrrci};
             is_alu      <= |{inst_addi, inst_slti,inst_sltiu, inst_xori, inst_ori, inst_andi,
                              inst_add, inst_sub, inst_slt, inst_sltu, inst_xor, inst_or, inst_and};
-            valid_instr <= |{inst_lui, inst_auipc, inst_jal, inst_jalr, inst_beq, inst_bne, inst_blt, inst_bge, inst_bltu,
-                             inst_bgeu, inst_lb, inst_lh, inst_lw, inst_lbu, inst_lhu, inst_sb, inst_sh, inst_sw, inst_addi,
-                             inst_slti, inst_sltiu, inst_xori, inst_ori, inst_andi, inst_slli, inst_srli, inst_srai, inst_add,
-                             inst_sub, inst_sll, inst_slt, inst_sltu, inst_xor, inst_srl, inst_sra, inst_or, inst_and, inst_fence,
-                             inst_csrrw, inst_csrrs, inst_csrrc, inst_csrrwi, inst_csrrsi, inst_csrrci, inst_xcall, inst_xbreak, inst_xret};
             // verilator lint_off WIDTH
             imm_i       <= $signed(instruction_q[31:20]);
             imm_s       <= $signed({instruction_q[31:25], instruction_q[11:7]});
@@ -370,7 +363,6 @@ module algol #(
             /*AUTORESET*/
             // Beginning of autoreset for uninitialized flops
             csr_dat_i         <= 32'h0;
-            done              <= 1'h0;
             e_code            <= 4'h0;
             instret           <= 64'h0;
             instruction_r     <= 32'h0;
@@ -394,7 +386,6 @@ module algol #(
                 // -------------------------------------------------------------
                 cpu_state_fetch: begin
                     rf_we <= 0;
-                    done  <= 0;
                     (* parallel_case *)
                     case (1'b1)
                         pc[1:0] != 0: begin
@@ -674,10 +665,10 @@ module algol #(
         if (rst_i) begin
             decode_delay <= 4'h0;
         end else begin
-            if (~valid_instr) begin
+            if (~latch_rf) begin
                 decode_delay <= 0;
             end else if (decode_delay == 0) begin
-                decode_delay <= {decode_delay[2:0], valid_instr};
+                decode_delay <= {decode_delay[2:0], 1'b1};
             end else begin
                 decode_delay <= decode_delay << 1;
             end
