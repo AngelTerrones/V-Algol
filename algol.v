@@ -139,7 +139,7 @@ module algol #(
     // branch ------------------------------------------------------------------
     reg         is_eq, is_lt, is_ltu, take_branch;
     // ALU ---------------------------------------------------------------------
-    reg [31:0]  alu_a, alu_b, alu_out, alu_add_sub, shift_out;
+    reg [31:0]  alu_a, alu_b, alu_out, alu_add_sub, shift_out, shift_out_r;
     reg         alu_cmp, is_add_sub, is_shift, is_cmp;
     reg [4:0]   shamt;
     reg         shift_busy;
@@ -320,7 +320,7 @@ module algol #(
             //inst_system  = instruction_q[6:0] == 7'b1110011 && instruction_q[14:12] == 3'b000;
             inst_xcall   = instruction_q[6:0] == 7'b1110011 && instruction_q[31:7] == 0;
             inst_xbreak  = instruction_q[6:0] == 7'b1110011 && instruction_q[31:7] == 25'b0000000000010000000000000;
-            inst_xret    = instruction_q[6:0] == 7'b1110011 && instruction_q[31:30] == 2'b0 && instruction_q[27:7] === 21'b000000100000000000000 && priv_mode >= instruction_q[29:28];
+            inst_xret    = instruction_q[6:0] == 7'b1110011 && instruction_q[31:30] == 2'b0 && instruction_q[27:7] == 21'b000000100000000000000 && priv_mode >= instruction_q[29:28];
             //
             is_j        <= |{inst_jal, inst_jalr};
             is_b        <= |{inst_beq, inst_bne, inst_blt, inst_bltu, inst_bge, inst_bgeu};
@@ -381,7 +381,7 @@ module algol #(
             wbm_we_o          <= 1'h0;
             // End of automatics
         end else begin
-            (* parallel_case *)
+            (* parallel_case, full_case *)
             case ( cpu_state )
                 // -------------------------------------------------------------
                 cpu_state_fetch: begin
@@ -541,9 +541,10 @@ module algol #(
                         endcase
                         shamt <= shamt - 1;
                     end else begin
-                        shift_busy <= 0;
-                        rf_we      <= 1;
-                        cpu_state  <= cpu_state_wb;
+                        shift_busy  <= 0;
+                        rf_we       <= 1;
+                        shift_out_r <= shift_out;
+                        cpu_state   <= cpu_state_wb;
                     end
                 end
                 // -------------------------------------------------------------
@@ -696,7 +697,7 @@ module algol #(
             inst_auipc: rf_wd <= pc_u;
             inst_lui:   rf_wd <= imm_u;
             is_l:       rf_wd <= mdat_i;
-            is_shift:   rf_wd <= shift_out;
+            is_shift:   rf_wd <= shift_out_r;
             default:    rf_wd <= 32'bx;
         endcase
     end
@@ -789,33 +790,34 @@ module algol #(
         case (1'b1)
             inst_lb: begin
                 case (ld_addr[1:0])
-                    2'b00: mdat_i <= $signed(wbm_dat_i[7:0]);
-                    2'b01: mdat_i <= $signed(wbm_dat_i[15:8]);
-                    2'b10: mdat_i <= $signed(wbm_dat_i[23:16]);
-                    2'b11: mdat_i <= $signed(wbm_dat_i[31:24]);
+                    2'b00: mdat_i = $signed(wbm_dat_i[7:0]);
+                    2'b01: mdat_i = $signed(wbm_dat_i[15:8]);
+                    2'b10: mdat_i = $signed(wbm_dat_i[23:16]);
+                    2'b11: mdat_i = $signed(wbm_dat_i[31:24]);
                 endcase
             end
             inst_lbu: begin
                 case (ld_addr[1:0])
-                    2'b00: mdat_i <= wbm_dat_i[7:0];
-                    2'b01: mdat_i <= wbm_dat_i[15:8];
-                    2'b10: mdat_i <= wbm_dat_i[23:16];
-                    2'b11: mdat_i <= wbm_dat_i[31:24];
+                    2'b00: mdat_i = wbm_dat_i[7:0];
+                    2'b01: mdat_i = wbm_dat_i[15:8];
+                    2'b10: mdat_i = wbm_dat_i[23:16];
+                    2'b11: mdat_i = wbm_dat_i[31:24];
                 endcase
             end
             inst_lh:  begin
                 case (ld_addr[1])
-                    1'b0: mdat_i <= $signed(wbm_dat_i[15:0]);
-                    1'b1: mdat_i <= $signed(wbm_dat_i[31:16]);
+                    1'b0: mdat_i = $signed(wbm_dat_i[15:0]);
+                    1'b1: mdat_i = $signed(wbm_dat_i[31:16]);
                 endcase
             end
             inst_lhu: begin
                 case (ld_addr[1])
-                    1'b0: mdat_i <= wbm_dat_i[15:0];
-                    1'b1: mdat_i <= wbm_dat_i[31:16];
+                    1'b0: mdat_i = wbm_dat_i[15:0];
+                    1'b1: mdat_i = wbm_dat_i[31:16];
                 endcase
             end
-            inst_lw: mdat_i <= wbm_dat_i;
+            inst_lw: mdat_i = wbm_dat_i;
+            default: mdat_i = 32'bx;
         endcase
         // verilator lint_on WIDTH
     end
