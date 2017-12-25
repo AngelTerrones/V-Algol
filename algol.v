@@ -139,7 +139,7 @@ module algol #(
     // branch ------------------------------------------------------------------
     reg         is_eq, is_lt, is_ltu, take_branch;
     // ALU ---------------------------------------------------------------------
-    reg [31:0]  alu_a, alu_b, alu_out, alu_add_sub, shift_out, shift_out_r;
+    reg [31:0]  alu_a, alu_b, alu_out, alu_add_sub, shift_out;
     reg         alu_cmp, is_add_sub, is_shift, is_cmp;
     reg [4:0]   shamt;
     reg         shift_busy;
@@ -563,7 +563,6 @@ module algol #(
                     end else begin
                         shift_busy  <= 0;
                         rf_we       <= 1;
-                        shift_out_r <= shift_out;
                         cpu_state   <= cpu_state_wb;
                     end
                 end
@@ -705,7 +704,7 @@ module algol #(
             inst_auipc: rf_wd <= pc_u;
             inst_lui:   rf_wd <= imm_u;
             is_l:       rf_wd <= mdat_i;
-            is_shift:   rf_wd <= shift_out_r;
+            is_shift:   rf_wd <= shift_out;
             default:    rf_wd <= 32'bx;
         endcase
     end
