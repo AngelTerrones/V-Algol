@@ -184,6 +184,7 @@ module algol #(
     // for memory access
     reg [31:0]  mdat_o, mdat_i, ld_addr, st_addr;
     reg [3:0]   msel_o;
+    reg         ld_misalign, st_misalign;
     // ---------------------------------------------------------------------
     // Decoder
     assign instruction_q = wbm_dat_i;
@@ -381,6 +382,7 @@ module algol #(
             wbm_we_o          <= 1'h0;
             // End of automatics
         end else begin
+            exc_data <= pc;
             (* parallel_case, full_case *)
             case ( cpu_state )
                 // -------------------------------------------------------------
@@ -393,7 +395,6 @@ module algol #(
                             wbm_stb_o     <= 1'b0;
                             instruction_r <= instruction_q;
                             trap_valid    <= 1;
-                            exc_data      <= pc;
                             e_code        <= E_INST_ADDR_MISALIGNED;
                             cpu_state     <= cpu_state_trap;
                         end
@@ -402,7 +403,6 @@ module algol #(
                             wbm_stb_o     <= 1'b0;
                             instruction_r <= instruction_q;
                             trap_valid    <= 1;
-                            exc_data      <= pc;
                             e_code        <= E_INST_ACCESS_FAULT;
                             cpu_state     <= cpu_state_decode;
                         end
@@ -418,7 +418,7 @@ module algol #(
                             latch_rf          <= 1'b0;
                             latch_instruction <= 1'b1;
                             wbm_addr_o        <= pc;
-                            wbm_dat_o         <= 32'b0;
+                            wbm_dat_o         <= 32'bx;
                             wbm_sel_o         <= 4'b0;
                             wbm_we_o          <= 1'b0;
                             wbm_cyc_o         <= 1'b1;
@@ -428,48 +428,61 @@ module algol #(
                 end
                 // -------------------------------------------------------------
                 cpu_state_decode: begin
-                    (* parallel_case, full_case *)
+                    (* parallel_case*)
                     case (1'b1)
+                        is_shift: cpu_state <= cpu_state_shift;
+                        is_alu: cpu_state   <= cpu_state_execute;
                         is_l: begin
-                            if (decode_delay[0]) begin
+                            exc_data <= ld_addr;
+                            e_code   <= E_LOAD_ADDR_MISALIGNED;
+                            if (decode_delay[1]) begin
                                 cpu_state <= cpu_state_ld;
-                                if ((ld_addr[0] && (inst_lh || inst_lhu)) || (|ld_addr[1:0] && inst_lw)) begin
+                                if (ld_misalign) begin
                                     trap_valid <= 1;
-                                    exc_data   <= ld_addr;
-                                    e_code     <= E_LOAD_ADDR_MISALIGNED;
                                     cpu_state  <= cpu_state_trap;
                                 end
                             end
                         end
                         is_s: begin
-                            if (decode_delay[0]) begin
+                            exc_data <= st_addr;
+                            e_code   <= E_STORE_AMO_ADDR_MISALIGNED;
+                            if (decode_delay[1]) begin
                                 cpu_state <= cpu_state_st;
-                                if ((st_addr[0] && inst_sh) || (st_addr[1:0] != 0 && inst_sw)) begin
+                                if (st_misalign) begin
                                     trap_valid <= 1;
-                                    exc_data   <= st_addr;
-                                    e_code     <= E_STORE_AMO_ADDR_MISALIGNED;
                                     cpu_state  <= cpu_state_trap;
                                 end
                             end
                         end
-                        is_shift: cpu_state <= cpu_state_shift;
-                        is_alu: cpu_state   <= cpu_state_execute;
                         inst_fence: begin
                             latch_instruction <= 1'b1;
-                            instret   <= instret + 1;
-                            pc        <= pc_4;
-                            cpu_state <= cpu_state_fetch;
+                            instret           <= instret + 1;
+                            pc                <= pc_4;
+                            cpu_state         <= cpu_state_fetch;
                         end
                         inst_lui: begin
                             rf_we     <= 1;
                             cpu_state <= cpu_state_wb;
                         end
-                        is_j: begin
+                        inst_jal: begin
+                            exc_data <= pc_jal;
+                            e_code   <= E_INST_ADDR_MISALIGNED;
                             if (decode_delay[0]) begin
                                 if (pc_jal[1:0] != 0) begin
                                     trap_valid <= 1;
-                                    exc_data   <= inst_jal ? pc_jal : pc_jalr;
-                                    e_code     <= E_INST_ADDR_MISALIGNED;
+                                    cpu_state  <= cpu_state_trap;
+                                end else begin
+                                    rf_we     <= 1;
+                                    cpu_state <= cpu_state_wb;
+                                end
+                            end
+                        end
+                        inst_jalr: begin
+                            exc_data <= pc_jalr;
+                            e_code   <= E_INST_ADDR_MISALIGNED;
+                            if (decode_delay[0]) begin
+                                if (pc_jalr[1:0] != 0) begin
+                                    trap_valid <= 1;
                                     cpu_state  <= cpu_state_trap;
                                 end else begin
                                     rf_we     <= 1;
@@ -478,13 +491,13 @@ module algol #(
                             end
                         end
                         is_b: begin
+                            exc_data <= pc_branch;
+                            e_code   <= E_INST_ADDR_MISALIGNED;
                             if (decode_delay[1]) begin
                                 cpu_state <= cpu_state_wb;
                                 if (take_branch) begin
                                     if (pc_branch[1:0] != 0) begin
                                         trap_valid <= 1;
-                                        exc_data   <= pc_branch;
-                                        e_code     <= E_INST_ADDR_MISALIGNED;
                                         cpu_state  <= cpu_state_trap;
                                     end
                                 end
@@ -502,9 +515,9 @@ module algol #(
                         end
                         inst_xret: begin
                             latch_instruction <= 1'b1;
-                            instret   <= instret + 1;
-                            pc        <= mepc;
-                            cpu_state <= cpu_state_fetch;
+                            instret           <= instret + 1;
+                            pc                <= mepc;
+                            cpu_state         <= cpu_state_fetch;
                         end
                         interrupt: begin
                             (* parallel_case *)
@@ -524,10 +537,10 @@ module algol #(
                             (* parallel_case *)
                             case (1'b1)
                                 // verilator lint_off WIDTH
-                                inst_xcall: e_code  <= E_ECALL_FROM_U + priv_mode;
+                                inst_xcall:  e_code <= E_ECALL_FROM_U + priv_mode;
                                 // verilator lint_on WIDTH
                                 inst_xbreak: e_code <= E_BREAKPOINT;
-                                default: e_code     <= E_ILLEGAL_INST;
+                                default:     e_code <= E_ILLEGAL_INST;
                             endcase
                             cpu_state <= cpu_state_trap;
                         end
@@ -574,7 +587,7 @@ module algol #(
                             wbm_cyc_o  <= 1'b0;
                             wbm_stb_o  <= 1'b0;
                             trap_valid <= 1;
-                            exc_data <= ld_addr;
+                            exc_data   <= ld_addr;
                             e_code     <= E_LOAD_ACCESS_FAULT;
                             cpu_state  <= cpu_state_trap;
                         end
@@ -717,7 +730,7 @@ module algol #(
         pc_u      <= pc + imm_u;
         pc_4      <= pc + 4;
 
-        (* parallel_case *)
+        (* parallel_case, full_case *)
         case (1'b1)
             inst_jal:    next_pc <= pc_jal;
             inst_jalr:   next_pc <= pc_jalr;
@@ -769,8 +782,10 @@ module algol #(
     // ---------------------------------------------------------------------
     // Memory access
     always @(posedge clk_i) begin
-        ld_addr <= rs1_d + imm_i;
-        st_addr <= rs1_d + imm_s;
+        ld_addr     <= rs1_d + imm_i;
+        st_addr     <= rs1_d + imm_s;
+        ld_misalign <= (ld_addr[0] && (inst_lh || inst_lhu)) || (|ld_addr[1:0] && inst_lw);
+        st_misalign <= (st_addr[0] && inst_sh) || (st_addr[1:0] != 0 && inst_sw);
     end
     // Memory output data
     always @(*) begin
