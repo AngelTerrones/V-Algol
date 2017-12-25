@@ -430,8 +430,28 @@ module algol #(
                 cpu_state_decode: begin
                     (* parallel_case, full_case *)
                     case (1'b1)
-                        is_l: cpu_state     <= cpu_state_ld;
-                        is_s: cpu_state     <= cpu_state_st;
+                        is_l: begin
+                            if (decode_delay[0]) begin
+                                cpu_state <= cpu_state_ld;
+                                if ((ld_addr[0] && (inst_lh || inst_lhu)) || (|ld_addr[1:0] && inst_lw)) begin
+                                    trap_valid <= 1;
+                                    exc_data   <= ld_addr;
+                                    e_code     <= E_LOAD_ADDR_MISALIGNED;
+                                    cpu_state  <= cpu_state_trap;
+                                end
+                            end
+                        end
+                        is_s: begin
+                            if (decode_delay[0]) begin
+                                cpu_state <= cpu_state_st;
+                                if ((st_addr[0] && inst_sh) || (st_addr[1:0] != 0 && inst_sw)) begin
+                                    trap_valid <= 1;
+                                    exc_data   <= st_addr;
+                                    e_code     <= E_STORE_AMO_ADDR_MISALIGNED;
+                                    cpu_state  <= cpu_state_trap;
+                                end
+                            end
+                        end
                         is_shift: cpu_state <= cpu_state_shift;
                         is_alu: cpu_state   <= cpu_state_execute;
                         inst_fence: begin
@@ -549,14 +569,8 @@ module algol #(
                 end
                 // -------------------------------------------------------------
                 cpu_state_ld: begin
-                    (* parallel_case, full_case *)
+                    (* parallel_case *)
                     case (1'b1)
-                        ((ld_addr[0] && (inst_lh || inst_lhu)) || (ld_addr[1:0] != 0 && inst_lw)): begin
-                            trap_valid <= 1;
-                            exc_data <= ld_addr;
-                            e_code     <= E_LOAD_ADDR_MISALIGNED;
-                            cpu_state  <= cpu_state_trap;
-                        end
                         wbm_err_i: begin
                             wbm_cyc_o  <= 1'b0;
                             wbm_stb_o  <= 1'b0;
@@ -584,20 +598,14 @@ module algol #(
                 end
                 // -------------------------------------------------------------
                 cpu_state_st: begin
-                    (* parallel_case, full_case *)
+                    (* parallel_case *)
                     case (1'b1)
-                        ((st_addr[0] && inst_sh) || (st_addr[1:0] != 0 && inst_sw)): begin
-                            trap_valid <= 1;
-                            exc_data <= st_addr;
-                            e_code     <= E_STORE_AMO_ADDR_MISALIGNED;
-                            cpu_state  <= cpu_state_trap;
-                        end
                         wbm_err_i: begin
                             wbm_we_o   <= 1'b0;
                             wbm_cyc_o  <= 1'b0;
                             wbm_stb_o  <= 1'b0;
                             trap_valid <= 1;
-                            exc_data <= st_addr;
+                            exc_data   <= st_addr;
                             e_code     <= E_STORE_AMO_ACCESS_FAULT;
                             cpu_state  <= cpu_state_trap;
                         end
