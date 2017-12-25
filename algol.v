@@ -365,7 +365,6 @@ module algol #(
             // Beginning of autoreset for uninitialized flops
             csr_dat_i         <= 32'h0;
             e_code            <= 4'h0;
-            instret           <= 64'h0;
             instruction_r     <= 32'h0;
             latch_instruction <= 1'h0;
             latch_rf          <= 1'h0;
@@ -456,7 +455,6 @@ module algol #(
                         end
                         inst_fence: begin
                             latch_instruction <= 1'b1;
-                            instret           <= instret + 1;
                             pc                <= pc_4;
                             cpu_state         <= cpu_state_fetch;
                         end
@@ -515,7 +513,6 @@ module algol #(
                         end
                         inst_xret: begin
                             latch_instruction <= 1'b1;
-                            instret           <= instret + 1;
                             pc                <= mepc;
                             cpu_state         <= cpu_state_fetch;
                         end
@@ -592,7 +589,6 @@ module algol #(
                             cpu_state  <= cpu_state_trap;
                         end
                         wbm_ack_i: begin
-                            instret   <= instret + 1;
                             wbm_cyc_o <= 1'b0;
                             wbm_stb_o <= 1'b0;
                             rf_we     <= 1;
@@ -623,12 +619,11 @@ module algol #(
                         end
                         wbm_ack_i: begin
                             latch_instruction <= 1'b1;
-                            pc        <= next_pc;
-                            instret   <= instret + 1;
-                            wbm_we_o  <= 1'b0;
-                            wbm_cyc_o <= 1'b0;
-                            wbm_stb_o <= 1'b0;
-                            cpu_state <= cpu_state_fetch;
+                            pc                <= next_pc;
+                            wbm_we_o          <= 1'b0;
+                            wbm_cyc_o         <= 1'b0;
+                            wbm_stb_o         <= 1'b0;
+                            cpu_state         <= cpu_state_fetch;
                         end
                         default: begin
                             wbm_addr_o <= st_addr;
@@ -657,26 +652,21 @@ module algol #(
                 // -------------------------------------------------------------
                 cpu_state_trap: begin
                     latch_instruction <= 1'b1;
-                    // verilator lint_off WIDTH
-                    instret    <= instret + (inst_xcall || inst_xbreak); // TODO: should BREAK increase the counter?
-                    // verilator lint_on WIDTH
-                    trap_valid <= 0;
-                    pc         <= mtvec;
-                    cpu_state  <= cpu_state_fetch;
+                    trap_valid        <= 0;
+                    pc                <= mtvec;
+                    cpu_state         <= cpu_state_fetch;
                 end
                 cpu_state_wb: begin
                     latch_instruction <= 1'b1;
-                    instret   <= instret + 1;
-                    rf_we     <= 0;
-                    pc        <= next_pc;
-                    cpu_state <= cpu_state_fetch;
+                    rf_we             <= 0;
+                    pc                <= next_pc;
+                    cpu_state         <= cpu_state_fetch;
                 end
                 // -------------------------------------------------------------
                 default: begin
                     latch_instruction <= 1'b1;
-                    instret   <= 0;
-                    pc        <= RESET_ADDR;
-                    cpu_state <= cpu_state_fetch;
+                    pc                <= RESET_ADDR;
+                    cpu_state         <= cpu_state_fetch;
                 end
             endcase
         end
@@ -846,14 +836,13 @@ module algol #(
 
     // ---------------------------------------------------------------------
     // CSR
-    wire wen;
+    reg wen;
     // Behavior modeling
     assign mstatus = {19'b0, mstatus_mpp, 3'b0, mstatus_mpie, 3'b0, mstatus_mie, 3'b0};
     assign mip     = {20'b0, xint_meip_i, 3'b0, xint_mtip_i, 3'b0, xint_msip_i, 3'b0};
     assign mie     = {20'b0, mie_meie, 3'b0, mie_mtie, 3'b0, mie_msie, 3'b0};
     assign mcause  = {mcause_interrupt, 27'b0, mcause_mecode};
 
-    assign wen = csr_wen && csr_address[11:10] != 2'b11 && priv_valid && latched_csr[2]; // this is void if the register does not exists.
     // latch commands
     always @(posedge clk_i) begin
         // TODO: use a latched is_csr?
@@ -865,6 +854,7 @@ module algol #(
         priv_valid     <= priv_mode >= csr_address[9:8];
         csr_wen        <= |{csr_wcmd, csr_scmd, csr_ccmd};
         illegal_access <= (csr_wen && (csr_address[11:10] == 2'b11)) || (is_csr && (!priv_valid || undef_register));
+        wen            <= csr_wen && csr_address[11:10] != 2'b11 && priv_valid && latched_csr[2];
     end
     // check CSR address
     always @(posedge clk_i) begin
@@ -892,7 +882,29 @@ module algol #(
         if (rst_i) begin
             cycle <= 0;
         end else begin
-            cycle <= cycle + 1;
+            if (wen && is_cycle) begin
+                cycle[31:0] <= csr_wdata;
+            end if (wen && is_cycleh) begin
+                cycle[63:32] <= csr_wdata;
+            end else begin
+                cycle <= cycle + 1;
+            end
+        end
+    end
+    //
+    always @(posedge clk_i) begin
+        if (rst_i) begin
+            instret <= 0;
+        end else begin
+            (* parallel_case *)
+            case (1'b1)
+                wen && is_instret:         instret[31: 0] <= csr_wdata;
+                wen && is_instreth:        instret[63: 32] <= csr_wdata;
+                cpu_state == cpu_state_wb: instret <= instret + 1;
+                inst_fence:                instret <= instret + 1;
+                inst_xret:                 instret <= instret + 1;
+                trap_valid:                instret <= instret + {63'b0, (inst_xcall || inst_xbreak)};
+            endcase
         end
     end
     // interrupts
