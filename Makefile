@@ -10,6 +10,7 @@ SHELL=bash
 .PYTEST=pytest
 .PYTHONTB=tests/python/test_core.py
 .RVTESTS=tests/riscv-tests
+.RVBENCHMARKS=tests/benchmarks
 
 # ------------------------------------------------------------------------------
 # targets
@@ -17,8 +18,14 @@ SHELL=bash
 compile-tests:
 	$(MAKE) -C $(.RVTESTS)
 
-run-riscv-tests-all: compile-tests
-	$(.PYTEST) -v --tb=short
+compile-benchmarks:
+	$(MAKE) -C $(.RVBENCHMARKS)
+
+run-riscv-tests: compile-tests
+	$(.PYTEST) -v --tb=short tests/python/
+
+run-riscv-benchmarks: compile-benchmarks
+	$(.PYTEST) -v --tb=short --slow tests/python/
 
 # ------------------------------------------------------------------------------
 # clean
@@ -28,5 +35,7 @@ clean:
 
 distclean: clean
 	find . | grep -E "(__pycache__|\.pyc|\.pyo|\.cache)" | xargs rm -rf
+	$(MAKE) -C $(.RVTESTS) clean
+	$(MAKE) -C $(.RVBENCHMARKS) clean
 
 .PHONY: compile-tests run-riscv-tests-all clean distclean

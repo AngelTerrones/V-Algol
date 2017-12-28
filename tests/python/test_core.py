@@ -34,6 +34,7 @@ def generate_testbench(filename, params):
         f.write(tb.format(**params))
 
 
+# ------------------------------------------------------------------------------
 def test_core(elf, config_file):
     """Stub for pytest
     """
@@ -103,9 +104,7 @@ def core_testbench(args=None):
                     data1 = data0 + 2
                     if memory.memory[data0] == syscall_code and memory.memory[data1] == 1:
                         memory.memory[fromhost >> 2] = 1
-                        print('--------------------------------------------------------------------------------')
-                        print('[SYSCALL]\n{}'.format(syscall_print(memory.memory, data0)))
-                        print('--------------------------------------------------------------------------------')
+                        print('[SYSCALL] {}'.format(syscall_print(memory.memory, data0)))
                     else:
                         raise hdl.Error(" Test failed. to_host = {0}. Time = {1} ".format(wb_port.dat_o, hdl.now()))
                 else:
