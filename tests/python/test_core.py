@@ -45,7 +45,7 @@ def test_core(elf, config_file):
 def core_testbench(args=None):
     config       = Configuration(args.config_file)
     timescale    = 1e-9
-    freq         = 10e6
+    freq         = 1e6
     rst_addr     = config.getOption('Core', 'start_address')
     memsize      = config.getOption('Simulation', 'mem_size')
     tohost       = config.getOption('Simulation', 'tohost_address')
@@ -53,7 +53,7 @@ def core_testbench(args=None):
     syscall_code = config.getOption('Simulation', 'syscall_code')
     clk          = Clock(0, freq=freq, timescale=timescale)
     rst          = Reset(0, active=True, async=False)
-    timeout      = Timeout(1e9)
+    timeout      = Timeout(600 / timescale)  # 600 seconds/10 minutes
 
     @hdl.block
     def tb_core():
@@ -93,7 +93,7 @@ def core_testbench(args=None):
 
         @hdl.instance
         def rst_pulse():
-            yield rst.pulse(300)
+            yield rst.pulse(int(3 / (freq * timescale)))
 
         @hdl.always(clk.posedge)
         def to_host_check():
