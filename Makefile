@@ -38,4 +38,4 @@ distclean: clean
 	$(MAKE) -C $(.RVTESTS) clean
 	$(MAKE) -C $(.RVBENCHMARKS) clean
 
-.PHONY: compile-tests run-riscv-tests-all clean distclean
+.PHONY: compile-tests compile-benchmarks run-riscv-tests run-riscv-benchmarks clean distclean
