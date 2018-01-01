@@ -509,10 +509,8 @@ module algol #(
                             cpu_state <= cpu_state_csr;
                         end
                         inst_auipc: begin
-                            if (decode_delay[0]) begin
-                                rf_we     <= 1;
-                                cpu_state <= cpu_state_wb;
-                            end
+                            rf_we     <= 1;
+                            cpu_state <= cpu_state_wb;
                         end
                         inst_xret: begin
                             latch_instruction <= 1'b1;
