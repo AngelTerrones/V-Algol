@@ -147,7 +147,7 @@ module algol #(
     // CSR ---------------------------------------------------------------------
     reg [11:0]  csr_address;
     reg [31:0]  csr_dat_o, csr_dat_i, exc_data;
-    reg         undef_register;
+    wire        undef_register;
     // CSR registers
     reg [1:0]   priv_mode;
     wire [31:0] mstatus;
@@ -195,11 +195,11 @@ module algol #(
             /*AUTORESET*/
             // Beginning of autoreset for uninitialized flops
             csr_address <= 12'h0;
-            imm_b       <= 32'h0;
-            imm_i       <= 32'h0;
-            imm_j       <= 32'h0;
-            imm_s       <= 32'h0;
-            imm_u       <= 32'h0;
+            imm_b        = 32'h0;
+            imm_i        = 32'h0;
+            imm_j        = 32'h0;
+            imm_s        = 32'h0;
+            imm_u        = 32'h0;
             inst_add     = 1'h0;
             inst_addi    = 1'h0;
             inst_and     = 1'h0;
@@ -331,11 +331,11 @@ module algol #(
             is_alu      <= |{inst_addi, inst_slti,inst_sltiu, inst_xori, inst_ori, inst_andi,
                              inst_add, inst_sub, inst_slt, inst_sltu, inst_xor, inst_or, inst_and};
             // verilator lint_off WIDTH
-            imm_i       <= $signed(instruction_q[31:20]);
-            imm_s       <= $signed({instruction_q[31:25], instruction_q[11:7]});
-            imm_b       <= $signed({instruction_q[31], instruction_q[7], instruction_q[30:25], instruction_q[11:8], 1'b0});
-            imm_u       <= {instruction_q[31:12], {12{1'b0}}};
-            imm_j       <= $signed({instruction_q[31], instruction_q[19:12], instruction_q[20], instruction_q[30:21], 1'b0});
+            imm_i        = $signed(instruction_q[31:20]);
+            imm_s        = $signed({instruction_q[31:25], instruction_q[11:7]});
+            imm_b        = $signed({instruction_q[31], instruction_q[7], instruction_q[30:25], instruction_q[11:8], 1'b0});
+            imm_u        = {instruction_q[31:12], {12{1'b0}}};
+            imm_j        = $signed({instruction_q[31], instruction_q[19:12], instruction_q[20], instruction_q[30:21], 1'b0});
             // verilator lint_on WIDTH
             //is_csr_sc   <= |{inst_csrrc, inst_csrrs, inst_csrrci, inst_csrrsi};
             is_csrs     <= |{inst_csrrs, inst_csrrsi};
@@ -350,6 +350,11 @@ module algol #(
             is_xor      <= inst_xori || inst_xor;
             is_or       <= inst_ori || inst_or;
             is_and      <= inst_andi || inst_and;
+            //
+            pc_jal       = pc + imm_j;
+            pc_branch    = pc + imm_b;
+            pc_u         = pc + imm_u;
+            pc_4         = pc + 4;
         end
     end
     // ---------------------------------------------------------------------
@@ -465,14 +470,12 @@ module algol #(
                         inst_jal: begin
                             exc_data <= pc_jal;
                             e_code   <= E_INST_ADDR_MISALIGNED;
-                            if (decode_delay[0]) begin
-                                if (pc_jal[1:0] != 0) begin
-                                    trap_valid <= 1;
-                                    cpu_state  <= cpu_state_trap;
-                                end else begin
-                                    rf_we     <= 1;
-                                    cpu_state <= cpu_state_wb;
-                                end
+                            if (pc_jal[1:0] != 0) begin
+                                trap_valid <= 1;
+                                cpu_state  <= cpu_state_trap;
+                            end else begin
+                                rf_we     <= 1;
+                                cpu_state <= cpu_state_wb;
                             end
                         end
                         inst_jalr: begin
@@ -637,7 +640,7 @@ module algol #(
                 end
                 // -------------------------------------------------------------
                 cpu_state_csr: begin
-                    if (latched_csr[2]) begin
+                    if (latched_csr[1]) begin
                         if (illegal_access) begin
                             trap_valid <= 1;
                             exc_data   <= instruction_r;
@@ -714,11 +717,7 @@ module algol #(
     // ---------------------------------------------------------------------
     // PC's
     always @(posedge clk_i) begin
-        pc_jal    <= pc + imm_j;
         pc_jalr   <= (rs1_d + imm_i) & 32'hFFFFFFFE;
-        pc_branch <= pc + imm_b;
-        pc_u      <= pc + imm_u;
-        pc_4      <= pc + 4;
 
         (* parallel_case, full_case *)
         case (1'b1)
@@ -852,7 +851,7 @@ module algol #(
         csr_ccmd       <= &{is_csrc, instruction_r[19:15] != 0}; // check rs1 != 0
         //
         priv_valid     <= priv_mode >= csr_address[9:8];
-        csr_wen        <= |{csr_wcmd, csr_scmd, csr_ccmd};
+        csr_wen         = |{csr_wcmd, csr_scmd, csr_ccmd};
         illegal_access <= (csr_wen && (csr_address[11:10] == 2'b11)) || (is_csr && (!priv_valid || undef_register));
         wen            <= csr_wen && csr_address[11:10] != 2'b11 && priv_valid && latched_csr[2];
     end
@@ -1003,9 +1002,9 @@ module algol #(
         end
     end
     // read registers
+    assign undef_register = ~|{is_misa, is_mhartid, is_mvendorid, is_marchid, is_mimpid, is_mstatus, is_mie, is_mtvec, is_mscratch, is_mepc, is_mcause, is_mtval, is_mip, is_cycle, is_instret, is_cycleh, is_instreth};
     always @(posedge clk_i) begin
         // valid 2nd cycle of CSR state
-        undef_register <= 1'b0;
         (* parallel_case *)
         case (1'b1)
             is_misa:                                csr_dat_o <= {2'b01, 4'b0, 26'b00000100000000000100000000};
@@ -1021,10 +1020,7 @@ module algol #(
             is_mip:                                 csr_dat_o <= mip;
             |{is_cycle, is_cycleh}:                 csr_dat_o <= is_cycle ? cycle[31:     0] : cycle[63:   32];
             |{is_instret, is_instreth}:             csr_dat_o <= is_instret ? instret[31: 0] : instret[63: 32];
-            default: begin
-                undef_register <= 1'b1;
-                csr_dat_o <= 32'bx;
-            end
+            default:                                csr_dat_o <= 32'bx;
         endcase
     end
 
