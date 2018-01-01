@@ -42,15 +42,16 @@ module algol #(
                  );
     // ---------------------------------------------------------------------
     // State machine
-    localparam cpu_state_fetch   = 9'b000000001;
-    localparam cpu_state_decode  = 9'b000000010;
-    localparam cpu_state_execute = 9'b000000100;
-    localparam cpu_state_shift   = 9'b000001000;
-    localparam cpu_state_ld      = 9'b000010000;
-    localparam cpu_state_st      = 9'b000100000;
-    localparam cpu_state_csr     = 9'b001000000;
-    localparam cpu_state_wb      = 9'b010000000;
-    localparam cpu_state_trap    = 9'b100000000;
+    localparam cpu_state_reset   = 10'b0000000001;
+    localparam cpu_state_fetch   = 10'b0000000010;
+    localparam cpu_state_decode  = 10'b0000000100;
+    localparam cpu_state_execute = 10'b0000001000;
+    localparam cpu_state_shift   = 10'b0000010000;
+    localparam cpu_state_ld      = 10'b0000100000;
+    localparam cpu_state_st      = 10'b0001000000;
+    localparam cpu_state_csr     = 10'b0010000000;
+    localparam cpu_state_wb      = 10'b0100000000;
+    localparam cpu_state_trap    = 10'b1000000000;
     // CSR
     localparam CYCLE      = 12'hC00;
     localparam INSTRET    = 12'hC02;
@@ -103,7 +104,7 @@ module algol #(
     localparam PRIV_M = 2'b11;
     // ---------------------------------------------------------------------
     // Signals
-    reg [8:0]   cpu_state;
+    reg [9:0]   cpu_state;
     reg [31:0]  pc;
     reg [31:0]  next_pc;
     reg [31:0]  pc_jal;
@@ -364,7 +365,7 @@ module algol #(
 
     always @(posedge clk_i) begin
         if (rst_i) begin
-            cpu_state         <= cpu_state_fetch;
+            cpu_state         <= cpu_state_reset;
             pc                <= RESET_ADDR;
             /*AUTORESET*/
             // Beginning of autoreset for uninitialized flops
@@ -378,55 +379,40 @@ module algol #(
             shift_busy        <= 1'h0;
             shift_out         <= 32'h0;
             trap_valid        <= 1'h0;
-            wbm_addr_o        <= 32'h0;
-            wbm_cyc_o         <= 1'h0;
-            wbm_dat_o         <= 32'h0;
-            wbm_sel_o         <= 4'h0;
-            wbm_stb_o         <= 1'h0;
-            wbm_we_o          <= 1'h0;
             // End of automatics
         end else begin
             exc_data <= pc;
             (* parallel_case, full_case *)
             case ( cpu_state )
                 // -------------------------------------------------------------
+                cpu_state_reset: begin
+                    latch_rf          <= 1'b0;
+                    latch_instruction <= 1'b1;
+                    cpu_state <= cpu_state_fetch;
+                end
                 cpu_state_fetch: begin
                     rf_we <= 0;
+                    latch_rf          <= 1'b0;
+                    latch_instruction <= 1'b1;
                     (* parallel_case *)
                     case (1'b1)
                         pc[1:0] != 0: begin
-                            wbm_cyc_o     <= 1'b0;
-                            wbm_stb_o     <= 1'b0;
                             instruction_r <= instruction_q;
                             trap_valid    <= 1;
                             e_code        <= E_INST_ADDR_MISALIGNED;
                             cpu_state     <= cpu_state_trap;
                         end
                         wbm_err_i: begin
-                            wbm_cyc_o     <= 1'b0;
-                            wbm_stb_o     <= 1'b0;
                             instruction_r <= instruction_q;
                             trap_valid    <= 1;
                             e_code        <= E_INST_ACCESS_FAULT;
                             cpu_state     <= cpu_state_decode;
                         end
                         wbm_ack_i: begin
-                            wbm_cyc_o         <= 1'b0;
-                            wbm_stb_o         <= 1'b0;
                             instruction_r     <= instruction_q;
                             latch_rf          <= 1'b1;
                             latch_instruction <= 1'b0;
                             cpu_state         <= cpu_state_decode;
-                        end
-                        default: begin
-                            latch_rf          <= 1'b0;
-                            latch_instruction <= 1'b1;
-                            wbm_addr_o        <= pc;
-                            wbm_dat_o         <= 32'bx;
-                            wbm_sel_o         <= 4'b0;
-                            wbm_we_o          <= 1'b0;
-                            wbm_cyc_o         <= 1'b1;
-                            wbm_stb_o         <= 1'b1;
                         end
                     endcase
                 end
@@ -582,26 +568,14 @@ module algol #(
                     (* parallel_case *)
                     case (1'b1)
                         wbm_err_i: begin
-                            wbm_cyc_o  <= 1'b0;
-                            wbm_stb_o  <= 1'b0;
                             trap_valid <= 1;
                             exc_data   <= ld_addr;
                             e_code     <= E_LOAD_ACCESS_FAULT;
                             cpu_state  <= cpu_state_trap;
                         end
                         wbm_ack_i: begin
-                            wbm_cyc_o <= 1'b0;
-                            wbm_stb_o <= 1'b0;
                             rf_we     <= 1;
                             cpu_state <= cpu_state_wb;
-                        end
-                        default: begin
-                            wbm_addr_o <= ld_addr;
-                            wbm_dat_o  <= 32'bx;
-                            wbm_sel_o  <= 4'b0;
-                            wbm_we_o   <= 1'b0;
-                            wbm_cyc_o  <= 1'b1;
-                            wbm_stb_o  <= 1'b1;
                         end
                     endcase
                 end
@@ -610,9 +584,6 @@ module algol #(
                     (* parallel_case *)
                     case (1'b1)
                         wbm_err_i: begin
-                            wbm_we_o   <= 1'b0;
-                            wbm_cyc_o  <= 1'b0;
-                            wbm_stb_o  <= 1'b0;
                             trap_valid <= 1;
                             exc_data   <= st_addr;
                             e_code     <= E_STORE_AMO_ACCESS_FAULT;
@@ -621,18 +592,7 @@ module algol #(
                         wbm_ack_i: begin
                             latch_instruction <= 1'b1;
                             pc                <= next_pc;
-                            wbm_we_o          <= 1'b0;
-                            wbm_cyc_o         <= 1'b0;
-                            wbm_stb_o         <= 1'b0;
                             cpu_state         <= cpu_state_fetch;
-                        end
-                        default: begin
-                            wbm_addr_o <= st_addr;
-                            wbm_dat_o  <= mdat_o;
-                            wbm_sel_o  <= msel_o;
-                            wbm_we_o   <= 1'b1;
-                            wbm_cyc_o  <= 1'b1;
-                            wbm_stb_o  <= 1'b1;
                         end
                     endcase
                 end
@@ -667,7 +627,7 @@ module algol #(
                 default: begin
                     latch_instruction <= 1'b1;
                     pc                <= RESET_ADDR;
-                    cpu_state         <= cpu_state_fetch;
+                    cpu_state         <= cpu_state_reset;
                 end
             endcase
         end
@@ -830,7 +790,44 @@ module algol #(
         endcase
         // verilator lint_on WIDTH
     end
-
+    // ---------------------------------------------------------------------
+    always @(*) begin
+        (* parallel_case *)
+        case (cpu_state)
+            cpu_state_fetch: begin
+                wbm_addr_o = pc;
+                wbm_dat_o  = 32'bx;
+                wbm_sel_o  = 4'b0;
+                wbm_we_o   = 1'b0;
+                wbm_cyc_o  = pc[1:0] == 0;
+                wbm_stb_o  = pc[1:0] == 0;
+            end
+            cpu_state_ld: begin
+                wbm_addr_o = ld_addr;
+                wbm_dat_o  = 32'bx;
+                wbm_sel_o  = 4'b0;
+                wbm_we_o   = 1'b0;
+                wbm_cyc_o  = 1'b1;
+                wbm_stb_o  = 1'b1;
+            end
+            cpu_state_st: begin
+                wbm_addr_o = st_addr;
+                wbm_dat_o  = mdat_o;
+                wbm_sel_o  = msel_o;
+                wbm_we_o   = 1'b1;
+                wbm_cyc_o  = 1'b1;
+                wbm_stb_o  = 1'b1;
+            end
+            default: begin
+                wbm_addr_o = 32'hx;
+                wbm_dat_o  = 32'hx;
+                wbm_sel_o  = 4'b0;
+                wbm_we_o   = 1'b0;
+                wbm_cyc_o  = 1'b0;
+                wbm_stb_o  = 1'b0;
+            end
+        endcase
+    end
     // ---------------------------------------------------------------------
     // CSR
     reg wen;
