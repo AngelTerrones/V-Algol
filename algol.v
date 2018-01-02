@@ -22,7 +22,7 @@
 module algol #(
                parameter [31:0] HART_ID = 0,
                parameter [31:0] RESET_ADDR = 32'h0000_0000,
-               parameter [0:0]  ENABLE_COUNTERS = 0
+               parameter [0:0]  ENABLE_COUNTERS = 1
                )(
                  input wire        clk_i,
                  input wire        rst_i,
@@ -331,7 +331,7 @@ module algol #(
             is_s        <= |{inst_sb, inst_sh, inst_sw};
             is_csr      <= |{inst_csrrw, inst_csrrs, inst_csrrc, inst_csrrwi, inst_csrrsi, inst_csrrci};
             is_alu      <= |{inst_addi, inst_slti,inst_sltiu, inst_xori, inst_ori, inst_andi,
-                             inst_add, inst_sub, inst_slt, inst_sltu, inst_xor, inst_or, inst_and};
+                             inst_add, inst_sub, inst_slt, inst_sltu, inst_xor, inst_or, inst_and, inst_auipc, inst_lui};
             // verilator lint_off WIDTH
             imm_i        = $signed(instruction_q[31:20]);
             imm_s        = $signed({instruction_q[31:25], instruction_q[11:7]});
@@ -449,31 +449,26 @@ module algol #(
                             pc                <= pc_4;
                             cpu_state         <= cpu_state_fetch;
                         end
-                        inst_lui: begin
-                            rf_we     <= 1;
-                            cpu_state <= cpu_state_wb;
-                        end
-                        inst_jal: begin
-                            exc_data <= pc_jal;
+                        is_j: begin
+                            exc_data <= inst_jal ? pc_jal : pc_jalr;
                             e_code   <= E_INST_ADDR_MISALIGNED;
-                            if (pc_jal[1:0] != 0) begin
-                                trap_valid <= 1;
-                                cpu_state  <= cpu_state_trap;
-                            end else begin
-                                rf_we     <= 1;
-                                cpu_state <= cpu_state_wb;
-                            end
-                        end
-                        inst_jalr: begin
-                            exc_data <= pc_jalr;
-                            e_code   <= E_INST_ADDR_MISALIGNED;
-                            if (decode_delay[0]) begin
-                                if (pc_jalr[1:0] != 0) begin
+                            if (inst_jal) begin
+                                if (pc_jal[1:0] != 0) begin
                                     trap_valid <= 1;
                                     cpu_state  <= cpu_state_trap;
                                 end else begin
                                     rf_we     <= 1;
                                     cpu_state <= cpu_state_wb;
+                                end
+                            end else begin
+                                if (decode_delay[0]) begin
+                                    if (pc_jalr[1]) begin
+                                        trap_valid <= 1;
+                                        cpu_state  <= cpu_state_trap;
+                                    end else begin
+                                        rf_we     <= 1;
+                                        cpu_state <= cpu_state_wb;
+                                    end
                                 end
                             end
                         end
@@ -493,10 +488,6 @@ module algol #(
                         is_csr: begin
                             csr_dat_i <= is_csrx ? rs1_d : {27'b0, rs1};
                             cpu_state <= cpu_state_csr;
-                        end
-                        inst_auipc: begin
-                            rf_we     <= 1;
-                            cpu_state <= cpu_state_wb;
                         end
                         inst_xret: begin
                             latch_instruction <= 1'b1;
@@ -593,7 +584,7 @@ module algol #(
                         wbm_ack_i: begin
                             latch_instruction <= 1'b1;
                             latch_rf          <= 1'b0;
-                            pc                <= next_pc;
+                            pc                <= pc_4;
                             cpu_state         <= cpu_state_fetch;
                         end
                     endcase
@@ -668,11 +659,8 @@ module algol #(
             is_j:       rf_wd <= pc_4;
             is_csr:     rf_wd <= csr_dat_o;
             is_alu:     rf_wd <= alu_out;
-            inst_auipc: rf_wd <= pc_u;
-            inst_lui:   rf_wd <= imm_u;
             is_l:       rf_wd <= mdat_i;
             is_shift:   rf_wd <= shift_out;
-            default:    rf_wd <= 32'bx;
         endcase
     end
     // ---------------------------------------------------------------------
@@ -729,7 +717,8 @@ module algol #(
             is_xor:     alu_out = alu_a ^ alu_b;
             is_or:      alu_out = alu_a | alu_b;
             is_and:     alu_out = alu_a & alu_b;
-            default:    alu_out = 32'bx;
+            inst_lui:   alu_out = imm_u;
+            inst_auipc: alu_out = pc_u;
         endcase
     end
     // ---------------------------------------------------------------------
