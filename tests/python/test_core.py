@@ -45,7 +45,7 @@ def test_core(elf, config_file):
 def core_testbench(args=None):
     config       = Configuration(args.config_file)
     timescale    = 1e-9
-    freq         = 1e6
+    freq         = 1e8
     rst_addr     = config.getOption('Core', 'start_address')
     memsize      = config.getOption('Simulation', 'mem_size')
     tohost       = config.getOption('Simulation', 'tohost_address')
@@ -64,7 +64,7 @@ def core_testbench(args=None):
         clkgen     = clk.clk_gen()  # noqa
         tout       = timeout.timeout_gen()  # noqa
         memory     = WBMemory(size=memsize, elf_file=args.elf)
-        test_mem   = memory.WBMemorySP(clk_i=clk, rst_i=rst, io_port=wb_port)  # noqa
+        test_mem   = memory.WBMemorySP_2C(clk_i=clk, rst_i=rst, io_port=wb_port)  # noqa
         bname      = os.path.splitext(os.path.basename(args.config_file))[0]
         vname      = 'core_{}'.format(bname)
         trace      = '-DTRACE' if args.trace else ''
