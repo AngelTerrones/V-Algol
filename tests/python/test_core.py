@@ -43,17 +43,18 @@ def test_core(elf, config_file):
 
 
 def core_testbench(args=None):
-    config       = Configuration(args.config_file)
-    timescale    = 1e-9
-    freq         = 1e8
-    rst_addr     = config.getOption('Core', 'start_address')
-    memsize      = config.getOption('Simulation', 'mem_size')
-    tohost       = config.getOption('Simulation', 'tohost_address')
-    fromhost     = config.getOption('Simulation', 'fromhost_address')
-    syscall_code = config.getOption('Simulation', 'syscall_code')
-    clk          = Clock(0, freq=freq, timescale=timescale)
-    rst          = Reset(0, active=True, async=False)
-    timeout      = Timeout(600 / timescale)  # 600 seconds/10 minutes
+    config          = Configuration(args.config_file)
+    timescale       = 1e-9
+    freq            = 1e8
+    rst_addr        = config.getOption('Core', 'start_address')
+    enable_counters = config.getOption('Core', 'enable_counters')
+    memsize         = config.getOption('Simulation', 'mem_size')
+    tohost          = config.getOption('Simulation', 'tohost_address')
+    fromhost        = config.getOption('Simulation', 'fromhost_address')
+    syscall_code    = config.getOption('Simulation', 'syscall_code')
+    clk             = Clock(0, freq=freq, timescale=timescale)
+    rst             = Reset(0, active=True, async=False)
+    timeout         = Timeout(600 / timescale)  # 600 seconds/10 minutes
 
     @hdl.block
     def tb_core():
@@ -71,7 +72,7 @@ def core_testbench(args=None):
         cmd1       = 'iverilog {trace} -o ./build/dut.o ./algol.v ./build/tb_{0}.v'.format(vname, trace=trace)
         cmd2       = 'vvp -m myhdl ./build/dut.o'
         os.makedirs('./build/', exist_ok=True)
-        generate_testbench(vname, dict(HART_ID=0, RESET_ADDR=rst_addr))
+        generate_testbench(vname, dict(HART_ID=0, RESET_ADDR=rst_addr, ENABLE_COUNTERS=enable_counters))
 
         def core_compilation(clk, rst, io_port, meip, mtip, msip):
             os.system(cmd1)

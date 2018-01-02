@@ -21,7 +21,8 @@
 
 module algol #(
                parameter [31:0] HART_ID = 0,
-               parameter [31:0] RESET_ADDR = 32'h0000_0000
+               parameter [31:0] RESET_ADDR = 32'h0000_0000,
+               parameter [0:0]  ENABLE_COUNTERS = 0
                )(
                  input wire        clk_i,
                  input wire        rst_i,
@@ -878,32 +879,40 @@ module algol #(
     end
     // write -------------------------------------------------------------------
     always @(posedge clk_i) begin
-        if (rst_i) begin
-            cycle <= 0;
-        end else begin
-            if (wen && is_cycle) begin
-                cycle[31:0] <= csr_wdata;
-            end if (wen && is_cycleh) begin
-                cycle[63:32] <= csr_wdata;
+       if (ENABLE_COUNTERS) begin
+            if (rst_i) begin
+                cycle <= 0;
             end else begin
-                cycle <= cycle + 1;
+                if (wen && is_cycle) begin
+                    cycle[31:0] <= csr_wdata;
+                end if (wen && is_cycleh) begin
+                    cycle[63:32] <= csr_wdata;
+                end else begin
+                    cycle <= cycle + 1;
+                end
             end
-        end
+       end else begin
+           cycle <= 32'hx;
+       end
     end
     //
     always @(posedge clk_i) begin
-        if (rst_i) begin
-            instret <= 0;
+        if (ENABLE_COUNTERS) begin
+            if (rst_i) begin
+                instret <= 0;
+            end else begin
+                (* parallel_case *)
+                case (1'b1)
+                    wen && is_instret:         instret[31: 0] <= csr_wdata;
+                    wen && is_instreth:        instret[63: 32] <= csr_wdata;
+                    cpu_state == cpu_state_wb: instret <= instret + 1;
+                    inst_fence:                instret <= instret + 1;
+                    inst_xret:                 instret <= instret + 1;
+                    trap_valid:                instret <= instret + {63'b0, (inst_xcall || inst_xbreak)};
+                endcase
+            end
         end else begin
-            (* parallel_case *)
-            case (1'b1)
-                wen && is_instret:         instret[31: 0] <= csr_wdata;
-                wen && is_instreth:        instret[63: 32] <= csr_wdata;
-                cpu_state == cpu_state_wb: instret <= instret + 1;
-                inst_fence:                instret <= instret + 1;
-                inst_xret:                 instret <= instret + 1;
-                trap_valid:                instret <= instret + {63'b0, (inst_xcall || inst_xbreak)};
-            endcase
+            instret <= 32'hx;
         end
     end
     // interrupts

@@ -42,7 +42,8 @@ module test_core;
         end
 
         algol #(.HART_ID({HART_ID}),
-                .RESET_ADDR({RESET_ADDR}))
+                .RESET_ADDR({RESET_ADDR}),
+                .ENABLE_COUNTERS({ENABLE_COUNTERS}))
         dut(.clk_i(clk_i),
             .rst_i(rst_i),
             .wbm_addr_o(wbm_addr_o),
