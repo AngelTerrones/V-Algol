@@ -392,8 +392,6 @@ module algol #(
                 end
                 cpu_state_fetch: begin
                     rf_we <= 0;
-                    latch_rf          <= 1'b0;
-                    latch_instruction <= 1'b1;
                     (* parallel_case *)
                     case (1'b1)
                         pc[1:0] != 0: begin
@@ -446,6 +444,7 @@ module algol #(
                         end
                         inst_fence: begin
                             latch_instruction <= 1'b1;
+                            latch_rf          <= 1'b0;
                             pc                <= pc_4;
                             cpu_state         <= cpu_state_fetch;
                         end
@@ -500,6 +499,7 @@ module algol #(
                         end
                         inst_xret: begin
                             latch_instruction <= 1'b1;
+                            latch_rf          <= 1'b0;
                             pc                <= mepc;
                             cpu_state         <= cpu_state_fetch;
                         end
@@ -591,6 +591,7 @@ module algol #(
                         end
                         wbm_ack_i: begin
                             latch_instruction <= 1'b1;
+                            latch_rf          <= 1'b0;
                             pc                <= next_pc;
                             cpu_state         <= cpu_state_fetch;
                         end
@@ -613,19 +614,20 @@ module algol #(
                 // -------------------------------------------------------------
                 cpu_state_trap: begin
                     latch_instruction <= 1'b1;
+                    latch_rf          <= 1'b0;
                     trap_valid        <= 0;
                     pc                <= mtvec;
                     cpu_state         <= cpu_state_fetch;
                 end
                 cpu_state_wb: begin
                     latch_instruction <= 1'b1;
+                    latch_rf          <= 1'b0;
                     rf_we             <= 0;
                     pc                <= next_pc;
                     cpu_state         <= cpu_state_fetch;
                 end
                 // -------------------------------------------------------------
                 default: begin
-                    latch_instruction <= 1'b1;
                     pc                <= RESET_ADDR;
                     cpu_state         <= cpu_state_reset;
                 end
@@ -691,8 +693,11 @@ module algol #(
         is_eq       <= rs1_d == rs2_d;
         is_lt       <= $signed(rs1_d) < $signed(rs2_d);
         is_ltu      <= rs1_d < rs2_d;
-        take_branch <= |{is_eq & inst_beq, ~is_eq & inst_bne, is_lt & inst_blt, ~is_lt & inst_bge,
-                         is_ltu & inst_bltu, ~is_ltu & inst_bgeu};
+        take_branch <= 1'b0;
+        if (decode_delay[0]) begin
+            take_branch <= |{is_eq & inst_beq, ~is_eq & inst_bne, is_lt & inst_blt, ~is_lt & inst_bge,
+                             is_ltu & inst_bltu, ~is_ltu & inst_bgeu};
+         end
     end
     // ---------------------------------------------------------------------
     // ALU
@@ -848,7 +853,7 @@ module algol #(
         priv_valid     <= priv_mode >= csr_address[9:8];
         csr_wen         = |{csr_wcmd, csr_scmd, csr_ccmd};
         illegal_access <= (csr_wen && (csr_address[11:10] == 2'b11)) || (is_csr && (!priv_valid || undef_register));
-        wen            <= csr_wen && csr_address[11:10] != 2'b11 && priv_valid && latched_csr[2];
+        wen            <= csr_wen && csr_address[11:10] != 2'b11 && priv_valid && latched_csr[1];
     end
     // check CSR address
     always @(posedge clk_i) begin
