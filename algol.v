@@ -383,18 +383,18 @@ module algol #(
             trap_valid        <= 1'h0;
             // End of automatics
         end else begin
-            exc_data <= pc;
-            (* parallel_case, full_case *)
+            //exc_data <= pc;
+            (* parallel_case *)
             case ( cpu_state )
                 // -------------------------------------------------------------
                 cpu_state_reset: begin
                     latch_rf          <= 1'b0;
                     latch_instruction <= 1'b1;
-                    cpu_state <= cpu_state_fetch;
+                    cpu_state         <= cpu_state_fetch;
                 end
                 cpu_state_fetch: begin
                     rf_we <= 0;
-                    (* parallel_case *)
+                    exc_data <= pc;
                     case (1'b1)
                         pc[1:0] != 0: begin
                             instruction_r <= instruction_q;
@@ -406,7 +406,7 @@ module algol #(
                             instruction_r <= instruction_q;
                             trap_valid    <= 1;
                             e_code        <= E_INST_ACCESS_FAULT;
-                            cpu_state     <= cpu_state_decode;
+                            cpu_state     <= cpu_state_trap;
                         end
                         wbm_ack_i: begin
                             instruction_r     <= instruction_q;
@@ -418,7 +418,7 @@ module algol #(
                 end
                 // -------------------------------------------------------------
                 cpu_state_decode: begin
-                    (* parallel_case*)
+                    (* parallel_case *)
                     case (1'b1)
                         is_shift: cpu_state <= cpu_state_shift;
                         is_alu: cpu_state   <= cpu_state_execute;
@@ -497,7 +497,7 @@ module algol #(
                             cpu_state         <= cpu_state_fetch;
                         end
                         interrupt: begin
-                            (* parallel_case *)
+                            // exc_data <= 32'hx;
                             case (1'b1)
                                 // verilator lint_off WIDTH
                                 pend_int[11]: e_code <= I_U_EXTERNAL + priv_mode;
@@ -511,7 +511,6 @@ module algol #(
                         default: begin
                             trap_valid <= 1;
                             exc_data   <= instruction_r;
-                            (* parallel_case *)
                             case (1'b1)
                                 // verilator lint_off WIDTH
                                 inst_xcall:  e_code <= E_ECALL_FROM_U + priv_mode;
@@ -537,7 +536,7 @@ module algol #(
                         xshamt     = alu_b[4:0] >= 4 ? 4 : 1;
                     end else if (shamt > 0) begin
                         xshamt = shamt >= 4 ? 4 : 1;
-                        (* parallel_case *)
+                        (* parallel_case, full_case *)
                         case (1'b1)
                             |{inst_slli, inst_sll}: shift_out <= shift_out << xshamt;
                             |{inst_srli, inst_srl}: shift_out <= shift_out >> xshamt;
@@ -552,9 +551,8 @@ module algol #(
                 end
                 // -------------------------------------------------------------
                 cpu_state_ld: begin
-                    exc_data   <= ld_addr;
+                    //exc_data   <= ld_addr;
                     e_code     <= E_LOAD_ACCESS_FAULT;
-                    (* parallel_case *)
                     case (1'b1)
                         wbm_err_i || illegal_mem: begin
                             trap_valid <= 1;
@@ -568,9 +566,8 @@ module algol #(
                 end
                 // -------------------------------------------------------------
                 cpu_state_st: begin
-                    exc_data   <= st_addr;
+                    //exc_data   <= st_addr;
                     e_code     <= E_STORE_AMO_ACCESS_FAULT;
-                    (* parallel_case *)
                     case (1'b1)
                         wbm_err_i || illegal_mem: begin
                             trap_valid <= 1;
@@ -586,11 +583,11 @@ module algol #(
                 end
                 // -------------------------------------------------------------
                 cpu_state_csr: begin
+                    exc_data <= instruction_r;
+                    e_code   <= E_ILLEGAL_INST;
                     if (latched_csr[1]) begin
                         if (illegal_access) begin
                             trap_valid <= 1;
-                            exc_data   <= instruction_r;
-                            e_code     <= E_ILLEGAL_INST;
                             cpu_state  <= cpu_state_trap;
                         end else begin
                             rf_we     <= 1;
@@ -662,8 +659,7 @@ module algol #(
     // PC's
     always @(posedge clk_i) begin
         pc_jalr   <= (rs1_d + imm_i) & 32'hFFFFFFFE;
-
-        (* parallel_case, full_case *)
+        (* parallel_case *)
         case (1'b1)
             inst_jal:    next_pc <= pc_jal;
             inst_jalr:   next_pc <= pc_jalr;
@@ -705,7 +701,7 @@ module algol #(
     end
 
     always @(*) begin
-        (* parallel_case *)
+        (* parallel_case, full_case *)
         case (1'b1)
             is_add_sub: alu_out = alu_add_sub;
             is_cmp:     alu_out = {31'b0, alu_cmp};
@@ -714,7 +710,6 @@ module algol #(
             is_and:     alu_out = alu_a & alu_b;
             inst_lui:   alu_out = imm_u;
             inst_auipc: alu_out = pc_u;
-            default:    alu_out = 32'hx;
         endcase
     end
     // ---------------------------------------------------------------------
@@ -745,10 +740,11 @@ module algol #(
     end
 
     always @(*) begin
-        (* parallel_case *)
         // verilator lint_off WIDTH
+        (* parallel_case, full_case *)
         case (1'b1)
             inst_lb: begin
+                (* parallel_case *)
                 case (ld_addr[1:0])
                     2'b00: mdat_i = $signed(wbm_dat_i[7:0]);
                     2'b01: mdat_i = $signed(wbm_dat_i[15:8]);
@@ -757,6 +753,7 @@ module algol #(
                 endcase
             end
             inst_lbu: begin
+                (* parallel_case *)
                 case (ld_addr[1:0])
                     2'b00: mdat_i = wbm_dat_i[7:0];
                     2'b01: mdat_i = wbm_dat_i[15:8];
@@ -765,19 +762,20 @@ module algol #(
                 endcase
             end
             inst_lh:  begin
+                (* parallel_case *)
                 case (ld_addr[1])
                     1'b0: mdat_i = $signed(wbm_dat_i[15:0]);
                     1'b1: mdat_i = $signed(wbm_dat_i[31:16]);
                 endcase
             end
             inst_lhu: begin
+                (* parallel_case *)
                 case (ld_addr[1])
                     1'b0: mdat_i = wbm_dat_i[15:0];
                     1'b1: mdat_i = wbm_dat_i[31:16];
                 endcase
             end
             inst_lw: mdat_i = wbm_dat_i;
-            default: mdat_i = 32'bx;
         endcase
         // verilator lint_on WIDTH
     end
@@ -785,7 +783,7 @@ module algol #(
     // Machine mode: access to whole address space (4GB)
     // User mode: access only to low 2GB (0x00000000 -> 0x7FFFFFFF)
     always @(*) begin
-        (* parallel_case *)
+	    (* parallel_case *)
         case (cpu_state)
             cpu_state_fetch: begin
                 illegal_mem = priv_mode == PRIV_U && pc[31];
@@ -874,7 +872,6 @@ module algol #(
             if (rst_i) begin
                 cycle <= 0;
             end else begin
-                (* parallel_case *)
                 case (1'b1)
                     wen && is_cycle:  cycle[31:0]  <= csr_wdata;
                     wen && is_cycleh: cycle[63:32] <= csr_wdata;
@@ -891,7 +888,6 @@ module algol #(
             if (rst_i) begin
                 instret <= 0;
             end else begin
-                (* parallel_case *)
                 case (1'b1)
                     wen && is_instret:         instret[31: 0] <= csr_wdata;
                     wen && is_instreth:        instret[63: 32] <= csr_wdata;
@@ -922,7 +918,6 @@ module algol #(
     end
     // auxiliar write data
     always @(posedge clk_i) begin
-        (* parallel_case *)
         case (1'b1)
             csr_scmd: csr_wdata <= csr_dat_o | csr_dat_i;
             csr_ccmd: csr_wdata <= csr_dat_o & ~csr_dat_i;
@@ -993,9 +988,8 @@ module algol #(
         if (rst_i) begin
             mtvec <= RESET_ADDR;
         end else if (wen) begin
-            (* parallel_case *)
             case (1'b1)
-                is_mtvec: mtvec       <= csr_wdata;
+                is_mtvec:    mtvec    <= csr_wdata;
                 is_mscratch: mscratch <= csr_wdata;
             endcase
         end
@@ -1004,7 +998,7 @@ module algol #(
     assign undef_register = ~|{is_misa, is_mhartid, is_mvendorid, is_marchid, is_mimpid, is_mstatus, is_mie, is_mtvec, is_mscratch, is_mepc, is_mcause, is_mtval, is_mip, is_cycle, is_instret, is_cycleh, is_instreth};
     always @(posedge clk_i) begin
         // valid 2nd cycle of CSR state
-        (* parallel_case *)
+        (* parallel_case, full_case *)
         case (1'b1)
             is_misa:                                csr_dat_o <= {2'b01, 4'b0, 26'b00000100000000000100000000};
             is_mhartid:                             csr_dat_o <= HART_ID;
@@ -1019,7 +1013,6 @@ module algol #(
             is_mip:                                 csr_dat_o <= mip;
             |{is_cycle, is_cycleh}:                 csr_dat_o <= is_cycle ? cycle[31:     0] : cycle[63:   32];
             |{is_instret, is_instreth}:             csr_dat_o <= is_instret ? instret[31: 0] : instret[63: 32];
-            default:                                csr_dat_o <= 32'bx;
         endcase
     end
 
