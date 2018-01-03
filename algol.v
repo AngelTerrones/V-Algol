@@ -653,9 +653,9 @@ module algol #(
         case (1'b1)
             is_j:       rf_wd <= pc_4;
             is_csr:     rf_wd <= csr_dat_o;
-            is_alu:     rf_wd <= alu_out;
             is_l:       rf_wd <= mdat_i;
             is_shift:   rf_wd <= shift_out;
+            default:    rf_wd <= alu_out;
         endcase
     end
     // ---------------------------------------------------------------------
@@ -714,6 +714,7 @@ module algol #(
             is_and:     alu_out = alu_a & alu_b;
             inst_lui:   alu_out = imm_u;
             inst_auipc: alu_out = pc_u;
+            default:    alu_out = 32'hx;
         endcase
     end
     // ---------------------------------------------------------------------
@@ -873,13 +874,12 @@ module algol #(
             if (rst_i) begin
                 cycle <= 0;
             end else begin
-                if (wen && is_cycle) begin
-                    cycle[31:0] <= csr_wdata;
-                end if (wen && is_cycleh) begin
-                    cycle[63:32] <= csr_wdata;
-                end else begin
-                    cycle <= cycle + 1;
-                end
+                (* parallel_case *)
+                case (1'b1)
+                    wen && is_cycle:  cycle[31:0]  <= csr_wdata;
+                    wen && is_cycleh: cycle[63:32] <= csr_wdata;
+                    default:          cycle        <= cycle + 1;
+                endcase
             end
        end else begin
            cycle <= 64'hx;
@@ -898,7 +898,7 @@ module algol #(
                     cpu_state == cpu_state_wb: instret <= instret + 1;
                     inst_fence:                instret <= instret + 1;
                     inst_xret:                 instret <= instret + 1;
-                    trap_valid:                instret <= instret + {63'b0, (inst_xcall || inst_xbreak)};
+                    trap_valid && (inst_xcall || inst_xbreak): instret <= instret + 1;
                 endcase
             end
         end else begin
