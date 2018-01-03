@@ -144,6 +144,7 @@ module algol #(
     reg [31:0]  alu_a, alu_b, alu_out, alu_add_sub, shift_out;
     reg         alu_cmp, is_add_sub, is_shift, is_cmp;
     reg [4:0]   shamt;
+    reg [2:0]   xshamt;
     reg         shift_busy;
     reg         is_xor, is_or, is_and;
     // CSR ---------------------------------------------------------------------
@@ -186,7 +187,7 @@ module algol #(
     // for memory access
     reg [31:0]  mdat_o, mdat_i, ld_addr, st_addr;
     reg [3:0]   msel_o;
-    reg         ld_misalign, st_misalign;
+    reg         ld_misalign, st_misalign, illegal_mem;
     // ---------------------------------------------------------------------
     // Decoder
     assign instruction_q = wbm_dat_i;
@@ -401,7 +402,7 @@ module algol #(
                             e_code        <= E_INST_ADDR_MISALIGNED;
                             cpu_state     <= cpu_state_trap;
                         end
-                        wbm_err_i: begin
+                        wbm_err_i || illegal_mem: begin
                             instruction_r <= instruction_q;
                             trap_valid    <= 1;
                             e_code        <= E_INST_ACCESS_FAULT;
@@ -533,22 +534,16 @@ module algol #(
                         shift_out  <= alu_a;
                         shamt      <= alu_b[4:0];
                         shift_busy <= 1;
-                    end else if (shamt >= 4) begin
-                        (* parallel_case *)
-                        case (1'b1)
-                            |{inst_slli, inst_sll}: shift_out <= shift_out << 4;
-                            |{inst_srli, inst_srl}: shift_out <= shift_out >> 4;
-                            |{inst_srai, inst_sra}: shift_out <= $signed(shift_out) >>> 4;
-                        endcase
-                        shamt <= shamt - 4;
+                        xshamt     = alu_b[4:0] >= 4 ? 4 : 1;
                     end else if (shamt > 0) begin
+                        xshamt = shamt >= 4 ? 4 : 1;
                         (* parallel_case *)
                         case (1'b1)
-                            |{inst_slli, inst_sll}: shift_out <= shift_out << 1;
-                            |{inst_srli, inst_srl}: shift_out <= shift_out >> 1;
-                            |{inst_srai, inst_sra}: shift_out <= $signed(shift_out) >>> 1;
+                            |{inst_slli, inst_sll}: shift_out <= shift_out << xshamt;
+                            |{inst_srli, inst_srl}: shift_out <= shift_out >> xshamt;
+                            |{inst_srai, inst_sra}: shift_out <= $signed(shift_out) >>> xshamt;
                         endcase
-                        shamt <= shamt - 1;
+                        shamt  <= shamt - (shamt >= 4 ? 4 : 1);
                     end else begin
                         shift_busy  <= 0;
                         rf_we       <= 1;
@@ -557,12 +552,12 @@ module algol #(
                 end
                 // -------------------------------------------------------------
                 cpu_state_ld: begin
+                    exc_data   <= ld_addr;
+                    e_code     <= E_LOAD_ACCESS_FAULT;
                     (* parallel_case *)
                     case (1'b1)
-                        wbm_err_i: begin
+                        wbm_err_i || illegal_mem: begin
                             trap_valid <= 1;
-                            exc_data   <= ld_addr;
-                            e_code     <= E_LOAD_ACCESS_FAULT;
                             cpu_state  <= cpu_state_trap;
                         end
                         wbm_ack_i: begin
@@ -573,12 +568,12 @@ module algol #(
                 end
                 // -------------------------------------------------------------
                 cpu_state_st: begin
+                    exc_data   <= st_addr;
+                    e_code     <= E_STORE_AMO_ACCESS_FAULT;
                     (* parallel_case *)
                     case (1'b1)
-                        wbm_err_i: begin
+                        wbm_err_i || illegal_mem: begin
                             trap_valid <= 1;
-                            exc_data   <= st_addr;
-                            e_code     <= E_STORE_AMO_ACCESS_FAULT;
                             cpu_state  <= cpu_state_trap;
                         end
                         wbm_ack_i: begin
@@ -786,34 +781,40 @@ module algol #(
         // verilator lint_on WIDTH
     end
     // ---------------------------------------------------------------------
+    // Machine mode: access to whole address space (4GB)
+    // User mode: access only to low 2GB (0x00000000 -> 0x7FFFFFFF)
     always @(*) begin
         (* parallel_case *)
         case (cpu_state)
             cpu_state_fetch: begin
+                illegal_mem = priv_mode == PRIV_U && pc[31];
                 wbm_addr_o = pc;
                 wbm_dat_o  = 32'bx;
                 wbm_sel_o  = 4'b0;
                 wbm_we_o   = 1'b0;
-                wbm_cyc_o  = pc[1:0] == 0;
-                wbm_stb_o  = pc[1:0] == 0;
+                wbm_cyc_o  = pc[1:0] == 0 && !illegal_mem;
+                wbm_stb_o  = pc[1:0] == 0 && !illegal_mem;
             end
             cpu_state_ld: begin
+                illegal_mem = priv_mode == PRIV_U && ld_addr[31];
                 wbm_addr_o = ld_addr;
                 wbm_dat_o  = 32'bx;
                 wbm_sel_o  = 4'b0;
                 wbm_we_o   = 1'b0;
-                wbm_cyc_o  = 1'b1;
-                wbm_stb_o  = 1'b1;
+                wbm_cyc_o  = !illegal_mem;
+                wbm_stb_o  = !illegal_mem;
             end
             cpu_state_st: begin
+                illegal_mem = priv_mode == PRIV_U && st_addr[31];
                 wbm_addr_o = st_addr;
                 wbm_dat_o  = mdat_o;
                 wbm_sel_o  = msel_o;
                 wbm_we_o   = 1'b1;
-                wbm_cyc_o  = 1'b1;
-                wbm_stb_o  = 1'b1;
+                wbm_cyc_o  = !illegal_mem;
+                wbm_stb_o  = !illegal_mem;
             end
             default: begin
+                illegal_mem = 0;
                 wbm_addr_o = 32'hx;
                 wbm_dat_o  = 32'hx;
                 wbm_sel_o  = 4'b0;
@@ -881,7 +882,7 @@ module algol #(
                 end
             end
        end else begin
-           cycle <= 32'hx;
+           cycle <= 64'hx;
        end
     end
     //
@@ -901,7 +902,7 @@ module algol #(
                 endcase
             end
         end else begin
-            instret <= 32'hx;
+            instret <= 64'hx;
         end
     end
     // interrupts
