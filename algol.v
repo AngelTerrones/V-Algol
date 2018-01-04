@@ -265,6 +265,10 @@ module algol #(
             is_s        <= 1'h0;
             is_shift    <= 1'h0;
             is_xor      <= 1'h0;
+            pc_4         = 32'h0;
+            pc_branch    = 32'h0;
+            pc_jal       = 32'h0;
+            pc_u         = 32'h0;
             rd          <= 5'h0;
             // End of automatics
             // verilator lint_off BLKSEQ
@@ -373,6 +377,7 @@ module algol #(
             // Beginning of autoreset for uninitialized flops
             csr_dat_i         <= 32'h0;
             e_code            <= 4'h0;
+            exc_data          <= 32'h0;
             instruction_r     <= 32'h0;
             latch_instruction <= 1'h0;
             latch_rf          <= 1'h0;
@@ -381,6 +386,7 @@ module algol #(
             shift_busy        <= 1'h0;
             shift_out         <= 32'h0;
             trap_valid        <= 1'h0;
+            xshamt             = 3'h0;
             // End of automatics
         end else begin
             //exc_data <= pc;
@@ -393,7 +399,7 @@ module algol #(
                     cpu_state         <= cpu_state_fetch;
                 end
                 cpu_state_fetch: begin
-                    rf_we <= 0;
+                    rf_we    <= 0;
                     exc_data <= pc;
                     case (1'b1)
                         pc[1:0] != 0: begin
@@ -533,7 +539,7 @@ module algol #(
                         shift_out  <= alu_a;
                         shamt      <= alu_b[4:0];
                         shift_busy <= 1;
-                        xshamt     = alu_b[4:0] >= 4 ? 4 : 1;
+                        xshamt      = alu_b[4:0] >= 4 ? 4 : 1;
                     end else if (shamt > 0) begin
                         xshamt = shamt >= 4 ? 4 : 1;
                         (* parallel_case, full_case *)
@@ -544,15 +550,14 @@ module algol #(
                         endcase
                         shamt  <= shamt - (shamt >= 4 ? 4 : 1);
                     end else begin
-                        shift_busy  <= 0;
-                        rf_we       <= 1;
-                        cpu_state   <= cpu_state_wb;
+                        shift_busy <= 0;
+                        rf_we      <= 1;
+                        cpu_state  <= cpu_state_wb;
                     end
                 end
                 // -------------------------------------------------------------
                 cpu_state_ld: begin
-                    //exc_data   <= ld_addr;
-                    e_code     <= E_LOAD_ACCESS_FAULT;
+                    e_code <= E_LOAD_ACCESS_FAULT;
                     case (1'b1)
                         wbm_err_i || illegal_mem: begin
                             trap_valid <= 1;
@@ -566,8 +571,7 @@ module algol #(
                 end
                 // -------------------------------------------------------------
                 cpu_state_st: begin
-                    //exc_data   <= st_addr;
-                    e_code     <= E_STORE_AMO_ACCESS_FAULT;
+                    e_code <= E_STORE_AMO_ACCESS_FAULT;
                     case (1'b1)
                         wbm_err_i || illegal_mem: begin
                             trap_valid <= 1;
@@ -612,8 +616,8 @@ module algol #(
                 end
                 // -------------------------------------------------------------
                 default: begin
-                    pc                <= RESET_ADDR;
-                    cpu_state         <= cpu_state_reset;
+                    pc        <= RESET_ADDR;
+                    cpu_state <= cpu_state_reset;
                 end
             endcase
         end
@@ -648,11 +652,11 @@ module algol #(
     always @(posedge clk_i) begin
         (* parallel_case *)
         case (1'b1)
-            is_j:       rf_wd <= pc_4;
-            is_csr:     rf_wd <= csr_dat_o;
-            is_l:       rf_wd <= mdat_i;
-            is_shift:   rf_wd <= shift_out;
-            default:    rf_wd <= alu_out;
+            is_j:     rf_wd <= pc_4;
+            is_csr:   rf_wd <= csr_dat_o;
+            is_l:     rf_wd <= mdat_i;
+            is_shift: rf_wd <= shift_out;
+            default:  rf_wd <= alu_out;
         endcase
     end
     // ---------------------------------------------------------------------
@@ -783,43 +787,43 @@ module algol #(
     // Machine mode: access to whole address space (4GB)
     // User mode: access only to low 2GB (0x00000000 -> 0x7FFFFFFF)
     always @(*) begin
-	    (* parallel_case *)
+        (* parallel_case *)
         case (cpu_state)
             cpu_state_fetch: begin
-                illegal_mem = priv_mode == PRIV_U && pc[31];
-                wbm_addr_o = pc;
-                wbm_dat_o  = 32'bx;
-                wbm_sel_o  = 4'b0;
-                wbm_we_o   = 1'b0;
-                wbm_cyc_o  = pc[1:0] == 0 && !illegal_mem;
-                wbm_stb_o  = pc[1:0] == 0 && !illegal_mem;
+                illegal_mem  = priv_mode == PRIV_U && pc[31];
+                wbm_addr_o   = pc;
+                wbm_dat_o    = 32'bx;
+                wbm_sel_o    = 4'b0;
+                wbm_we_o     = 1'b0;
+                wbm_cyc_o    = pc[1:0] == 0 && !illegal_mem;
+                wbm_stb_o    = pc[1:0] == 0 && !illegal_mem;
             end
             cpu_state_ld: begin
-                illegal_mem = priv_mode == PRIV_U && ld_addr[31];
-                wbm_addr_o = ld_addr;
-                wbm_dat_o  = 32'bx;
-                wbm_sel_o  = 4'b0;
-                wbm_we_o   = 1'b0;
-                wbm_cyc_o  = !illegal_mem;
-                wbm_stb_o  = !illegal_mem;
+                illegal_mem  = priv_mode == PRIV_U && ld_addr[31];
+                wbm_addr_o   = ld_addr;
+                wbm_dat_o    = 32'bx;
+                wbm_sel_o    = 4'b0;
+                wbm_we_o     = 1'b0;
+                wbm_cyc_o    = !illegal_mem;
+                wbm_stb_o    = !illegal_mem;
             end
             cpu_state_st: begin
-                illegal_mem = priv_mode == PRIV_U && st_addr[31];
-                wbm_addr_o = st_addr;
-                wbm_dat_o  = mdat_o;
-                wbm_sel_o  = msel_o;
-                wbm_we_o   = 1'b1;
-                wbm_cyc_o  = !illegal_mem;
-                wbm_stb_o  = !illegal_mem;
+                illegal_mem  = priv_mode == PRIV_U && st_addr[31];
+                wbm_addr_o   = st_addr;
+                wbm_dat_o    = mdat_o;
+                wbm_sel_o    = msel_o;
+                wbm_we_o     = 1'b1;
+                wbm_cyc_o    = !illegal_mem;
+                wbm_stb_o    = !illegal_mem;
             end
             default: begin
-                illegal_mem = 0;
-                wbm_addr_o = 32'hx;
-                wbm_dat_o  = 32'hx;
-                wbm_sel_o  = 4'b0;
-                wbm_we_o   = 1'b0;
-                wbm_cyc_o  = 1'b0;
-                wbm_stb_o  = 1'b0;
+                illegal_mem  = 0;
+                wbm_addr_o   = 32'hx;
+                wbm_dat_o    = 32'hx;
+                wbm_sel_o    = 4'b0;
+                wbm_we_o     = 1'b0;
+                wbm_cyc_o    = 1'b0;
+                wbm_stb_o    = 1'b0;
             end
         endcase
     end
