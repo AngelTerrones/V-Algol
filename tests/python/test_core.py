@@ -35,10 +35,10 @@ def generate_testbench(filename, params):
 
 
 # ------------------------------------------------------------------------------
-def test_core(elf, config_file):
+def test_core(progfile, config_file):
     """Stub for pytest
     """
-    args = argparse.Namespace(elf=elf, config_file=config_file, trace=False)
+    args = argparse.Namespace(progfile=progfile, config_file=config_file, trace=False)
     core_testbench(args)
 
 
@@ -64,7 +64,7 @@ def core_testbench(args=None):
         msip       = createSignal(0, 1)
         clkgen     = clk.clk_gen()  # noqa
         tout       = timeout.timeout_gen()  # noqa
-        memory     = WBMemory(size=memsize, elf_file=args.elf)
+        memory     = WBMemory(size=memsize, prog_file=args.progfile, loader='binary')
         test_mem   = memory.WBMemorySP_2C(clk_i=clk, rst_i=rst, io_port=wb_port)  # noqa
         bname      = os.path.splitext(os.path.basename(args.config_file))[0]
         vname      = 'core_{}'.format(bname)
@@ -118,9 +118,9 @@ def core_testbench(args=None):
 
 
 if __name__ == '__main__':
-    args = run_parser(extra_ops=[('--elf', dict(required=True)), ('--config-file', dict(required=True))])
+    args = run_parser(extra_ops=[('--progfile', dict(required=True)), ('--config-file', dict(required=True))])
     core_testbench(args)
-    print('[TEST-ALGOL {}] Test: Ok'.format(os.path.basename(args.elf)))
+    print('[TEST-ALGOL {}] Test: Ok'.format(os.path.basename(args.progfile)))
 
 # Local Variables:
 # flycheck-flake8-maximum-line-length: 200

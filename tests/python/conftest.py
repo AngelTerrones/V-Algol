@@ -11,12 +11,12 @@ def pytest_addoption(parser):
 def pytest_generate_tests(metafunc):
     list_cf  = glob.glob("tests/settings/*.ini")
     if metafunc.config.getoption('--slow'):
-        list_elf = glob.glob("tests/benchmarks/*.riscv")
+        list_progfile = glob.glob("tests/benchmarks/*.bin")
     else:
-        list_elf = glob.glob("tests/riscv-tests/rv32mi-p-[!b]*.elf")  # ignore breakpoint tests
-        list_elf = list_elf + glob.glob("tests/riscv-tests/rv32ui-p-*.elf")
+        list_progfile = glob.glob("tests/riscv-tests/rv32mi-p-[!b]*.bin")  # ignore breakpoint tests
+        list_progfile = list_progfile + glob.glob("tests/riscv-tests/rv32ui-p-*.bin")
     metafunc.parametrize('config_file', list_cf)
-    metafunc.parametrize('elf', list_elf)
+    metafunc.parametrize('progfile', list_progfile)
 
 # Local Variables:
 # flycheck-flake8-maximum-line-length: 120

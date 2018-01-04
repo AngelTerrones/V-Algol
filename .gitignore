@@ -6,6 +6,7 @@
 *.o
 *.riscv*
 *.elf
+*.bin
 
 # dump files
 *.hex
