@@ -457,11 +457,11 @@ module algol #(
                             cpu_state         <= cpu_state_fetch;
                         end
                         is_j: begin
-                            exc_data <= inst_jal ? pc_jal : pc_jalr;
                             e_code   <= E_INST_ADDR_MISALIGNED;
                             if (inst_jal) begin
                                 if (pc_jal[1:0] != 0) begin
                                     trap_valid <= 1;
+                                    exc_data <= pc_jal;
                                     cpu_state  <= cpu_state_trap;
                                 end else begin
                                     rf_we     <= 1;
@@ -471,6 +471,7 @@ module algol #(
                                 if (decode_delay[0]) begin
                                     if (pc_jalr[1]) begin
                                         trap_valid <= 1;
+                                        exc_data <= pc_jalr;
                                         cpu_state  <= cpu_state_trap;
                                     end else begin
                                         rf_we     <= 1;
@@ -650,19 +651,19 @@ module algol #(
     end
 
     always @(posedge clk_i) begin
-        (* parallel_case *)
+        (* parallel_case, full_case *)
         case (1'b1)
             is_j:     rf_wd <= pc_4;
             is_csr:   rf_wd <= csr_dat_o;
             is_l:     rf_wd <= mdat_i;
             is_shift: rf_wd <= shift_out;
-            default:  rf_wd <= alu_out;
+            is_alu:   rf_wd <= alu_out;
         endcase
     end
     // ---------------------------------------------------------------------
     // PC's
     always @(posedge clk_i) begin
-        pc_jalr   <= (rs1_d + imm_i) & 32'hFFFFFFFE;
+        pc_jalr <= (rs1_d + imm_i) & 32'hFFFFFFFE;
         (* parallel_case *)
         case (1'b1)
             inst_jal:    next_pc <= pc_jal;
