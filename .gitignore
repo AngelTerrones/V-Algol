@@ -23,3 +23,6 @@ output/
 
 # extra output files
 *.html
+
+# emacs files
+*.el
