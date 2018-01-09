@@ -74,7 +74,7 @@ public:
                                m_core->wbm_we_o, m_core->wbm_dat_i, m_core->wbm_ack_i, m_core->wbm_err_i);
 
                         // check for TOHOST
-                        if(m_core->wbm_addr_o == TOHOST and m_core->wbm_cyc_o and m_core->wbm_stb_o and m_core->wbm_we_o) {
+                        if(m_core->wbm_addr_o == TOHOST and m_core->wbm_cyc_o and m_core->wbm_stb_o and m_core->wbm_we_o and m_core->wbm_ack_i) {
                                 if (m_core->wbm_dat_o != 1) {
                                         // check for syscalls (used by benchmarks)
                                         const uint32_t data0 = m_core->wbm_dat_o >> 2; // byte2word
@@ -91,6 +91,7 @@ public:
                                 }
                         }
                 }
+                Tick();
                 uint32_t time = getTime();
                 if (ok) {
                         printf("Simulation done. Time %u\n", time);
