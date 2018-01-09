@@ -4,7 +4,7 @@
 # ------------------------------------------------------------------------------
 include tests/verilator/pprint.mk
 
-.VOBJ := $(.BUILD_DIR)/algol_obj
+.VOBJ := $(BUILD_DIR)/algol_obj
 .SUBMAKE := $(MAKE) --no-print-directory --directory=$(.VOBJ) -f
 .VERILATE := verilator --trace -Wall -Wno-fatal -cc -CFLAGS "-std=c++11 -O3" -Mdir $(.VOBJ)
 
