@@ -8,9 +8,6 @@ SHELL=bash
 .SUBMAKE := $(MAKE) --no-print-directory
 .PWD:=$(shell pwd)
 .BFOLDER:=build
-.PYTHON:=python3
-.PYTEST:=pytest
-.PYTHONTB:=tests/python/test_core.py
 .RVTESTSF:=tests/riscv-tests
 .RVBENCHMARKSF:=tests/benchmarks
 .RTLMK:=tests/verilator/build_rtl.mk
@@ -37,10 +34,8 @@ help:
 	@echo -e "- compile-benchmarks: Compile RISC-V benchmarks"
 	@echo -e "- verilate-core:      Generate C++ core model"
 	@echo -e "- build-code:         Build C++ core model"
-	@echo -e "- run-tests-p:        Execute assembler tests using the python testbench (SLOW)"
-	@echo -e "- run-benchmarks-p:   Execute benchmarks using the python testbench (SLOW)"
-	@echo -e "- run-tests-v:        Execute assembler tests using the C++ testbench"
-	@echo -e "- run-benchmarks-v:   Execute benchmarks using the C++ testbench"
+	@echo -e "- run-tests:          Execute assembler tests using the C++ testbench"
+	@echo -e "- run-benchmarks:     Execute benchmarks using the C++ testbench"
 	@echo -e "--------------------------------------------------------------------------------"
 
 compile-tests:
@@ -59,18 +54,11 @@ verilate-core:
 build-vcore: verilate-core
 	+@$(.SUBMAKE) -f $(.VCOREMK) core BUILD_DIR=$(.BFOLDER)
 
-# myhdl tests
-run-tests-p: compile-tests
-	@$(.PYTEST) -v --tb=short tests/python/
-
-run-benchmarks-p: compile-benchmarks
-	@$(.PYTEST) -v --tb=short --slow tests/python/
-
 # verilator tests
-run-tests-v: compile-tests build-vcore
+run-tests: compile-tests build-vcore
 	@$(foreach f, $(.RVTESTS), $(.VALGOLCMDTST) $(f) > /dev/null && $(call print_ok,$(f)) || $(call print_error,$(f));)
 
-run-benchmarks-v: compile-benchmarks build-vcore
+run-benchmarks: compile-benchmarks build-vcore
 	@$(foreach f, $(.RVBENCHMARKS), $(.VALGOLCMDBMK) $(f) > /dev/null && $(call print_ok,$(f)) || $(call print_error,$(f));)
 
 # ------------------------------------------------------------------------------
@@ -84,4 +72,4 @@ distclean: clean
 	@$(.SUBMAKE) -C $(.RVTESTSF) clean
 	@$(.SUBMAKE) -C $(.RVBENCHMARKSF) clean
 
-.PHONY: compile-tests compile-benchmarks run-tests-p run-benchmarks-p run-tests-v run-benchmarks-v clean distclean
+.PHONY: compile-tests compile-benchmarks run-tests run-benchmarks clean distclean
