@@ -133,7 +133,7 @@ private:
 void PrintHelp() {
         std::cout << "V-Algol Verilator model." << std::endl;
         std::cout << "Usage:" << std::endl;
-        std::cout << "\talgol.exe --frequency <core frequency> --timeout <max simulation time> --file <filename> [--trace]" << std::endl;
+        std::cout << "\talgol.exe --frequency <core frequency> --timeout <max simulation time> --file <filename> [--trace] [--trace-directory <trace directory>]" << std::endl;
 }
 
 // Main
@@ -142,6 +142,7 @@ int main(int argc, char **argv) {
         const std::string &s_progfile  = input.GetCmdOption("--file");
         const std::string &s_frequency = input.GetCmdOption("--frequency");
         const std::string &s_timeout   = input.GetCmdOption("--timeout");
+        const std::string &s_trace_dir = input.GetCmdOption("--trace-directory");
         const bool trace               = input.CmdOptionExist("--trace");
         const bool help                = input.CmdOptionExist("--help");
 
@@ -152,8 +153,14 @@ int main(int argc, char **argv) {
         const double frequency = std::stod(s_frequency);
         const uint32_t timeout = std::stoul(s_timeout);
         std::unique_ptr<ALGOLTB> tb(new ALGOLTB(frequency));
-        if (trace)
-                tb->OpenTrace("algol.vcd");
+        if (trace) {
+                std::string bf = s_progfile.substr(s_progfile.find_last_of("/\\") + 1);
+                std::string::size_type const p(bf.find_last_of('.'));
+                std::string binfile = bf.substr(0, p);
+                std::string vcdfile = (s_trace_dir.empty() ? "." : s_trace_dir) + "/algol_" + binfile + ".vcd";
+                std::cout << "VCD: " << vcdfile << std::endl;
+                tb->OpenTrace(vcdfile.data());
+        }
         tb->Reset();
         int result = tb->SimulateCore(s_progfile, timeout);
 
