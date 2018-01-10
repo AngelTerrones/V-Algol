@@ -90,10 +90,11 @@ public:
         }
 
 protected:
-        uint32_t m_tickdiv, m_tickdivh;
-        std::unique_ptr<DUT> m_core;
+        uint32_t                       m_tickdiv;
+        uint32_t                       m_tickdivh;
+        std::unique_ptr<DUT>           m_core;
         std::unique_ptr<VerilatedVcdC> m_trace;
-        vluint64_t m_tick_count;
+        vluint64_t                     m_tick_count;
 };
 
 #endif

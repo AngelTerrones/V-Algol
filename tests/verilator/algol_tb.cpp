@@ -35,11 +35,16 @@
 #define FROMHOST 0x1040
 #define SYSCALL 64
 
+// -----------------------------------------------------------------------------
 // The testbench
 class ALGOLTB: public Testbench<Valgol>{
 public:
+        // -----------------------------------------------------------------------------
+        // Testbench constructor
         ALGOLTB(double frequency, double timescale=1e-9): Testbench(frequency, timescale) {}
 
+        // -----------------------------------------------------------------------------
+        // For benchmarks, prints data from syscall 64.
         void SyscallPrint(WBMEMORY &memory, const uint32_t base_addr){
                 const uint32_t data_addr = memory[base_addr + 4];
                 const uint32_t size      = memory[base_addr + 6];
@@ -56,6 +61,8 @@ public:
                 printf("\n");
         }
 
+        // -----------------------------------------------------------------------------
+        // Run the CPU model.
         int SimulateCore(const std::string &progfile, unsigned long max_time=1000000L) {
                 std::unique_ptr<WBMEMORY> memory_ptr(new WBMEMORY(0x20000));
                 WBMEMORY &memory = *memory_ptr;
@@ -83,6 +90,7 @@ public:
                                                 memory[FROMHOST >> 2] = 1;
                                                 SyscallPrint(memory, data0);
                                         } else {
+                                                // exit code != 0.
                                                 break;
                                         }
                                 } else {
@@ -93,19 +101,22 @@ public:
                 }
                 Tick();
                 uint32_t time = getTime();
+                uint32_t exit_code = 0;
                 if (ok) {
                         printf("Simulation done. Time %u\n", time);
-                        return 0;
+                        exit_code = 0;
                 } else if(time < max_time) {
                         printf("Simulation error. Exit code: %08X. Time: %u\n", m_core->wbm_dat_o, time);
-                        return m_core->wbm_dat_o;
+                        exit_code = 1;
                 } else {
                         printf("Simulation error. Timeout. Time: %u\n", time);
-                        return 1;
+                        exit_code = 2;
                 }
+                return exit_code;
          }
 };
 
+// -----------------------------------------------------------------------------
 //  from https://stackoverflow.com/questions/865668/how-to-parse-command-line-arguments-in-c
 //  author: iain
 class INPUTPARSER{
@@ -129,6 +140,7 @@ private:
         std::vector<std::string> m_tokens;
 };
 
+// -----------------------------------------------------------------------------
 // Basic help
 void PrintHelp() {
         std::cout << "V-Algol Verilator model." << std::endl;
@@ -136,6 +148,7 @@ void PrintHelp() {
         std::cout << "\talgol.exe --frequency <core frequency> --timeout <max simulation time> --file <filename> [--trace] [--trace-directory <trace directory>]" << std::endl;
 }
 
+// -----------------------------------------------------------------------------
 // Main
 int main(int argc, char **argv) {
         INPUTPARSER input(argc, argv);
@@ -158,7 +171,6 @@ int main(int argc, char **argv) {
                 std::string::size_type const p(bf.find_last_of('.'));
                 std::string binfile = bf.substr(0, p);
                 std::string vcdfile = (s_trace_dir.empty() ? "." : s_trace_dir) + "/algol_" + binfile + ".vcd";
-                std::cout << "VCD: " << vcdfile << std::endl;
                 tb->OpenTrace(vcdfile.data());
         }
         tb->Reset();

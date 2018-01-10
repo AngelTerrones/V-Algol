@@ -25,6 +25,8 @@
 #include <iostream>
 #include "memory.h"
 
+// -----------------------------------------------------------------------------
+// Constructor.
 WBMEMORY::WBMEMORY(const uint32_t nwords, const uint32_t delay) {
         uint32_t next;
         // get the address mask, and memory size (power of 2)
@@ -36,11 +38,15 @@ WBMEMORY::WBMEMORY(const uint32_t nwords, const uint32_t delay) {
         m_delay_cnt = 0;
 }
 
+// -----------------------------------------------------------------------------
+// Destructor.
 WBMEMORY::~WBMEMORY(){
         m_memory->clear();  // (._.') ??
         delete m_memory;
 }
 
+// -----------------------------------------------------------------------------
+// Load/initialize memory.
 void WBMEMORY::Load(const std::string &filename) {
         std::unique_ptr<std::ifstream> file(new std::ifstream(filename, std::ios_base::in | std::ios_base::binary | std::ios_base::ate));
         if (file->is_open()){
@@ -48,7 +54,6 @@ void WBMEMORY::Load(const std::string &filename) {
                 if ((filesize >> 2) > m_size){
                         std::cerr << "File is bigger than the memory size." << (filesize >> 2) << std::endl;
                 }
-                std::cout << "Loading file: " << filename << std::endl;
                 file->seekg(0);
                 file->read(reinterpret_cast<char *>(m_memory->data()), filesize);
         } else {
@@ -57,6 +62,8 @@ void WBMEMORY::Load(const std::string &filename) {
         }
 }
 
+// -----------------------------------------------------------------------------
+// Execute model: read/write operations.
 void WBMEMORY::operator()(const uint32_t wbs_addr_i, const uint32_t wbs_dat_i, const uint8_t wbs_sel_i,
                           const uint8_t wbs_cyc_i, const uint8_t wbs_stb_i, const uint8_t wbs_we_i,
                           uint32_t &wbs_data_o, uint8_t &wbs_ack_o, uint8_t &wbs_err_o){
@@ -84,6 +91,7 @@ void WBMEMORY::operator()(const uint32_t wbs_addr_i, const uint32_t wbs_dat_i, c
         }
 }
 
+// -----------------------------------------------------------------------------
 uint32_t &WBMEMORY::operator[](const uint32_t addr){
         return (*m_memory)[addr];
 }
