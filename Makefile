@@ -12,8 +12,6 @@ SHELL=bash
 .RVBENCHMARKSF:=tests/benchmarks
 .RTLMK:=tests/verilator/build_rtl.mk
 .VCOREMK:=tests/verilator/build_verilated.mk
-.RVTESTS:=$(shell find $(.RVTESTSF) -name "rv32ui*.bin" -o -name "rv32mi*.bin" ! -name "*breakpoint*.bin")
-.RVBENCHMARKS:=$(shell find $(.RVBENCHMARKSF) -name "*.bin")
 .VALGOLCMDTST:=$(.BFOLDER)/algol.exe --frequency 10e6 --timeout 1000000 --file
 .VALGOLCMDBMK:=$(.BFOLDER)/algol.exe --frequency 10e6 --timeout 1000000000 --file
 
@@ -23,6 +21,10 @@ endef
 
 define print_error
 	printf "%-50s %b" $(1) "$(ERROR_COLOR)$(ERROR_STRING)$(NO_COLOR)\n"
+endef
+
+define run_bin_file
+	$(.VALGOLCMDTST) $(1) > /dev/null && $(call print_ok, $(1)) || $(call print_error, $(1))
 endef
 # ------------------------------------------------------------------------------
 # targets
@@ -56,10 +58,12 @@ build-vcore: verilate-core
 
 # verilator tests
 run-tests: compile-tests build-vcore
-	@$(foreach f, $(.RVTESTS), $(.VALGOLCMDTST) $(f) > /dev/null && $(call print_ok,$(f)) || $(call print_error,$(f));)
+	@$(eval .RVTESTS:=$(shell find $(.RVTESTSF) -name "rv32ui*.bin" -o -name "rv32mi*.bin" ! -name "*breakpoint*.bin"))
+	@$(foreach file, $(.RVTESTS), $(call run_bin_file, $(file)))
 
 run-benchmarks: compile-benchmarks build-vcore
-	@$(foreach f, $(.RVBENCHMARKS), $(.VALGOLCMDBMK) $(f) > /dev/null && $(call print_ok,$(f)) || $(call print_error,$(f));)
+	@$(eval .RVBENCHMARKS:=$(shell find $(.RVBENCHMARKSF) -name "*.bin"))
+	@$(foreach file, $(.RVBENCHMARKS), $(call run_bin_file, $(file)))
 
 # ------------------------------------------------------------------------------
 # clean
