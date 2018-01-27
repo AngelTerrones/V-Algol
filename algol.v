@@ -41,6 +41,7 @@ module algol #(
                  input wire        xint_mtip_i,
                  input wire        xint_msip_i
                  );
+    // BEGIN MYHDL TEMPLATE
     // ---------------------------------------------------------------------
     // State machine
     localparam cpu_state_reset   = 10'b0000000001;
@@ -1020,6 +1021,6 @@ module algol #(
             |{is_instret, is_instreth}:             csr_dat_o <= is_instret ? instret[31: 0] : instret[63: 32];
         endcase
     end
-
+    // END MYHDL TEMPLATE
 endmodule
 // EOF
