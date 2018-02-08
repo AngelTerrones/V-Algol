@@ -10,10 +10,14 @@ SHELL=bash
 .BFOLDER:=build
 .RVTESTSF:=tests/riscv-tests
 .RVBENCHMARKSF:=tests/benchmarks
-.RTLMK:=tests/verilator/build_rtl.mk
-.VCOREMK:=tests/verilator/build_verilated.mk
-.VALGOLCMDTST:=$(.BFOLDER)/algol.exe --frequency 10e6 --timeout 1000000 --file
-.VALGOLCMDBMK:=$(.BFOLDER)/algol.exe --frequency 10e6 --timeout 1000000000 --file
+.RTLMK_ALGOL:=tests/verilator/algol/build_rtl.mk
+.VCOREMK_ALGOL:=tests/verilator/algol/build_verilated.mk
+.RTLMK_PERSEUS:=tests/verilator/perseus/build_rtl.mk
+.VCOREMK_PERSEUS:=tests/verilator/perseus/build_verilated.mk
+.VALGOLCMD:=$(.BFOLDER)/algol.exe --frequency 10e6 --timeout 1000000000 --file
+.PERSEUSCMD:=$(.BFOLDER)/Perseus.exe --frequency 10e6 --timeout 1000000000 --file
+.PFILES=$(shell find Perseus -name "*.py")
+.PYTHON=python3
 
 define print_ok
 	printf "%-50s %b" $(1) "$(OK_COLOR)$(OK_STRING)$(NO_COLOR)\n"
@@ -24,7 +28,7 @@ define print_error
 endef
 
 define run_bin_file
-	$(.VALGOLCMDTST) $(1) > /dev/null && $(call print_ok, $(1)) || $(call print_error, $(1))
+	$(1) $(2) > /dev/null && $(call print_ok, $(2)) || $(call print_error, $(2))
 endef
 # ------------------------------------------------------------------------------
 # targets
@@ -32,12 +36,16 @@ endef
 help:
 	@echo -e "--------------------------------------------------------------------------------"
 	@echo -e "Please, choose one target:"
-	@echo -e "- compile-tests:      Compile RISC-V assembler tests"
-	@echo -e "- compile-benchmarks: Compile RISC-V benchmarks"
-	@echo -e "- verilate-core:      Generate C++ core model"
-	@echo -e "- build-code:         Build C++ core model"
-	@echo -e "- run-tests:          Execute assembler tests using the C++ testbench"
-	@echo -e "- run-benchmarks:     Execute benchmarks using the C++ testbench"
+	@echo -e "- compile-tests:          Compile RISC-V assembler tests"
+	@echo -e "- compile-benchmarks:     Compile RISC-V benchmarks"
+	@echo -e "- verilate-algol:         Generate C++ core model (ALGOL)"
+	@echo -e "- verilate-perseus:       Generate C++ core model (PERSEUS)"
+	@echo -e "- build-algol:            Build C++ core model (ALGOL)"
+	@echo -e "- build-perseus:          Build C++ core model (PERSEUS)"
+	@echo -e "- run-algol-tests:        Execute assembler tests using the C++ testbench (ALGOL)"
+	@echo -e "- run-perseus-tests:      Execute assembler tests using the C++ testbench (PERSEUS)"
+	@echo -e "- run-algol-benchmarks:   Execute benchmarks using the C++ testbench (ALGOL)"
+	@echo -e "- run-perseus-benchmarks: Execute benchmarks using the C++ testbench (PERSEUS)"
 	@echo -e "--------------------------------------------------------------------------------"
 
 compile-tests:
@@ -46,24 +54,47 @@ compile-tests:
 compile-benchmarks:
 	+@$(.SUBMAKE) -C $(.RVBENCHMARKSF)
 
+# ------------------------------------------------------------------------------
 # verilate
-rtl: verilate-core
-verilate-core:
+verilate-algol:
 	@printf "%b" "$(MSJ_COLOR)Building RTL (Modules) for Verilator$(NO_COLOR)\n"
 	@mkdir -p $(.BFOLDER)
-	+@$(.SUBMAKE) -f $(.RTLMK) core BUILD_DIR=$(.BFOLDER)
+	+@$(.SUBMAKE) -f $(.RTLMK_ALGOL) core BUILD_DIR=$(.BFOLDER)
 
-build-vcore: verilate-core
-	+@$(.SUBMAKE) -f $(.VCOREMK) core BUILD_DIR=$(.BFOLDER)
+build-algol: verilate-algol
+	+@$(.SUBMAKE) -f $(.VCOREMK_ALGOL) core BUILD_DIR=$(.BFOLDER)
 
+# ----------------------------
+$(.BFOLDER)/Perseus.v: algol.v $(.PFILES)
+	@printf "%b" "$(MSJ_COLOR)myHDL to verilog$(NO_COLOR)\n"
+	@mkdir -p $(.BFOLDER)
+	@PYTHONPATH=$(PWD) $(.PYTHON) Perseus/perseus.py -c tests/settings/perseus_RV32I.ini -p $(.BFOLDER) -n Perseus
+
+verilate-perseus: $(.BFOLDER)/Perseus.v
+	@printf "%b" "$(MSJ_COLOR)Building RTL (Modules) for Verilator$(NO_COLOR)\n"
+	+@$(.SUBMAKE) -f $(.RTLMK_PERSEUS) core BUILD_DIR=$(.BFOLDER)
+
+build-perseus: verilate-perseus
+	+@$(.SUBMAKE) -f $(.VCOREMK_PERSEUS) core BUILD_DIR=$(.BFOLDER)
+
+# ------------------------------------------------------------------------------
 # verilator tests
-run-tests: compile-tests build-vcore
+run-algol-tests: compile-tests build-algol
 	@$(eval .RVTESTS:=$(shell find $(.RVTESTSF) -name "rv32ui*.bin" -o -name "rv32mi*.bin" ! -name "*breakpoint*.bin"))
-	@$(foreach file, $(.RVTESTS), $(call run_bin_file, $(file)))
+	@$(foreach file, $(.RVTESTS), $(call run_bin_file,$(.VALGOLCMD),$(file)))
 
-run-benchmarks: compile-benchmarks build-vcore
+run-algol-benchmarks: compile-benchmarks build-algol
 	@$(eval .RVBENCHMARKS:=$(shell find $(.RVBENCHMARKSF) -name "*.bin"))
-	@$(foreach file, $(.RVBENCHMARKS), $(call run_bin_file, $(file)))
+	@$(foreach file, $(.RVBENCHMARKS), $(call run_bin_file,$(.VALGOLCMD),$(file)))
+
+# ----------------------------
+run-perseus-tests: compile-tests build-perseus
+	@$(eval .RVTESTS:=$(shell find $(.RVTESTSF) -name "rv32ui*.bin" -o -name "rv32mi*.bin" ! -name "*breakpoint*.bin"))
+	@$(foreach file, $(.RVTESTS), $(call run_bin_file,$(.PERSEUSCMD),$(file)))
+
+run-perseus-benchmarks: compile-benchmarks build-perseus
+	@$(eval .RVBENCHMARKS:=$(shell find $(.RVBENCHMARKSF) -name "*.bin"))
+	@$(foreach file, $(.RVBENCHMARKS), $(call run_bin_file,$(.PERSEUSCMD),$(file)))
 
 # ------------------------------------------------------------------------------
 # clean
