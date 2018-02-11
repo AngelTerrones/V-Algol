@@ -6,7 +6,7 @@ include tests/verilator/pprint.mk
 
 CXX := g++
 CFLAGS := -std=c++11 -Wall -O3 #-DDEBUG -g
-RTL_OBJ := $(BUILD_DIR)/perseus_obj
+RTL_OBJ := $(BUILD_DIR)/bPersei_obj
 VERILATOR_ROOT ?= $(shell bash -c 'verilator -V|grep VERILATOR_ROOT | head -1 | sed -e " s/^.*=\s*//"')
 VROOT := $(VERILATOR_ROOT)
 VINCD := $(VROOT)/include
@@ -14,14 +14,14 @@ VINC := -I$(VINCD) -I$(VINCD)/vltstd -I$(RTL_OBJ)
 INCS := $(VINC) -Itests/verilator
 VOBJS := $(RTL_OBJ)/verilated.o $(RTL_OBJ)/verilated_vcd_c.o
 
-SOURCES := perseus_tb.cpp memory.cpp
+SOURCES := bPersei_tb.cpp memory.cpp
 HEADERS := memory.h testbench.h
 
 OBJS := $(addprefix $(RTL_OBJ)/, $(subst .cpp,.o,$(SOURCES)))
 # ------------------------------------------------------------------------------
 # targets
 # ------------------------------------------------------------------------------
-core: $(BUILD_DIR)/Perseus.exe
+core: $(BUILD_DIR)/bPersei.exe
 
 .SECONDARY: $(OBJS)
 
@@ -29,7 +29,7 @@ $(RTL_OBJ)/%.o: tests/verilator/%.cpp
 	@printf "%b" "$(COM_COLOR)$(COM_STRING)$(OBJ_COLOR) $(@F) $(NO_COLOR)\n"
 	@$(CXX) $(CFLAGS) $(INCS) -c $< -o $@
 
-$(RTL_OBJ)/%.o: tests/verilator/perseus/%.cpp
+$(RTL_OBJ)/%.o: tests/verilator/bpersei/%.cpp
 	@printf "%b" "$(COM_COLOR)$(COM_STRING)$(OBJ_COLOR) $(@F) $(NO_COLOR)\n"
 	@$(CXX) $(CFLAGS) $(INCS) -c $< -o $@
 

@@ -24,19 +24,19 @@ def get_template(file):
 
 
 @hdl.block
-def algol(clk_i,
-          rst_i,
-          wbm,
-          xint_meip_i,
-          xint_mtip_i,
-          xint_msip_i,
-          hart_id,
-          config):
+def bPersei(clk_i,
+            rst_i,
+            wbm,
+            xint_meip_i,
+            xint_mtip_i,
+            xint_msip_i,
+            hart_id,
+            config):
     """myhdl module using user-defined code.
     """
-    assert isinstance(wbm, WishboneMaster), "[Algol] Error: wbm port must be of type WishboneMaster"
-    assert isinstance(config, Configuration), '[Algol] Error: config data must be of type Configuration'
-    assert hart_id >= 0, '[Algol] Error: HART_ID must be >= 0'
+    assert isinstance(wbm, WishboneMaster), "[bPersei] Error: wbm port must be of type WishboneMaster"
+    assert isinstance(config, Configuration), '[bPersei] Error: config data must be of type Configuration'
+    assert hart_id >= 0, '[bPersei] Error: HART_ID must be >= 0'
 
     rst_addr   = config.getOption('Core', 'start_address')  # noqa
     en_counter = config.getOption('Core', 'enable_counters')  # noqa
@@ -66,7 +66,7 @@ def algol(clk_i,
     return hdl.instances()
 
 
-algol.verilog_code = get_template('algol.v')
+bPersei.verilog_code = get_template('bPersei.v')
 
 # Local Variables:
 # flycheck-flake8-maximum-line-length: 200

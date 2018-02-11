@@ -1,18 +1,21 @@
 ![logo](documentation/img/logo.png)
 
-ALGOL - A RISC-V CPU
-====================
+ALGOL - A RISC-V CPU system
+===========================
 
-Algol is a set of CPU cores that implement the [RISC-V RV32I Instruction Set](http://riscv.org/).
+bPersei a CPU core that implement the [RISC-V RV32I Instruction Set](http://riscv.org/).
+Algol is a system that use the bPsersei RISC-V core, plus a interrupt controller (PLIC), and a
+platform control registers (PCR).
 
 Algol is free and open hardware licensed under the [MIT license](https://en.wikipedia.org/wiki/MIT_License).
 
 <!-- markdown-toc start - Don't edit this section. Run M-x markdown-toc-refresh-toc -->
 **Table of Contents**
 
-- [ALGOL - A RISC-V CPU](#algol---a-risc-v-cpu)
+- [ALGOL - A RISC-V CPU system](#algol---a-risc-v-cpu-system)
     - [Dependencies](#dependencies)
     - [Processor details](#processor-details)
+    - [Platform details](#platform-details)
     - [Software Details](#software-details)
     - [Directory Layout](#directory-layout)
     - [Validation](#validation)
@@ -26,7 +29,8 @@ Algol is free and open hardware licensed under the [MIT license](https://en.wiki
 
 Dependencies
 ------------
-- [Verilator](https://www.veripool.org/wiki/verilator).
+- [Verilator](https://www.veripool.org/wiki/verilator) for the CPU core (bPersei) simulation.
+- Python3 and [Atik](https://github.com/AngelTerrones/Atik) for the system core (Algol) generation.
 - RISC-V toolchain, to compile the validation tests and benchmarks.
 
 Processor details
@@ -38,6 +42,14 @@ Processor details
 - Single memory port using the [Wishbone B4](https://www.ohwr.org/attachments/179/wbspec_b4.pdf) Interface.
 - Single verilog file with the core implementation.
 
+Platform details
+----------------
+- Basic interrupt controller based in the PLIC specification described in the [Priviledged Architecture](https://riscv.org/specifications/privileged-isa/) manual.
+- Plaform control registers (PCR) implementing the system timer and the software interrupts
+- Basic [Wishbone B4](https://www.ohwr.org/attachments/179/wbspec_b4.pdf) bus.
+- Memory port for external memory controller.
+- Memory port for I/O bus.
+
 Software Details
 ----------------
 - Simulation done in C++ using [Verilator](https://www.veripool.org/wiki/verilator).
@@ -47,10 +59,11 @@ Software Details
 
 Directory Layout
 ----------------
-- `algol.v`: Verilog file describing the CPU.
+- `bPersei.v`: Verilog file describing the CPU core.
 - `README.md`: This file.
+- `Algol`: Python source files for the Algol core system.
 - `documentation`: LaTeX source files for the CPU manuals (TODO).
-- `tests`: Test environment for the Algol CPU.
+- `tests`: Test environment for the bPersei CPU and Algol system.
     - `benchmarks`: Basic benchmarks written in C. Taken from [riscv-tests](http://riscv.org/software-tools/riscv-tests/) (git rev b747a10**).
     - `riscv-tests`: Basic instruction-level tests. Taken from [riscv-tests](http://riscv.org/software-tools/riscv-tests/) (git rev b747a10**).
     - `settings`: Basic CPU configuration files.
@@ -73,15 +86,18 @@ To compile the RISC-V benchmarks:
 ### Validate cores
 To validate the cores using the [validation suit](http://riscv.org/software-tools/riscv-tests/) (No VCD dumps):
 
-> $ make run-tests
+> $ make run-bpersei-tests
+> $ make run-algol-tests
 
 To run the benchmarks (no individual output, no dumps):
 
-> $ make run-benchmarks
+> $ make run-bpersei-benchmarks
+> $ make run-algol-benchmarks
 
 To run the model with a single `.bin` file:
 
-> $ ./build/algol.exe --frequency [frequency] --timeout [timeout] --file [bin file]
+> $ ./build/bPersei.exe --frequency [frequency] --timeout [timeout] --file [bin file]
+> $ ./build/Algol.exel --frequency [frequency] --timeout [timeout] --file [bin file]
 
 To enable dump of VCD files, add the `--trace` flag.
 

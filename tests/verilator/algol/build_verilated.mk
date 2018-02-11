@@ -6,7 +6,7 @@ include tests/verilator/pprint.mk
 
 CXX := g++
 CFLAGS := -std=c++11 -Wall -O3 #-DDEBUG -g
-RTL_OBJ := $(BUILD_DIR)/algol_obj
+RTL_OBJ := $(BUILD_DIR)/Algol_obj
 VERILATOR_ROOT ?= $(shell bash -c 'verilator -V|grep VERILATOR_ROOT | head -1 | sed -e " s/^.*=\s*//"')
 VROOT := $(VERILATOR_ROOT)
 VINCD := $(VROOT)/include
@@ -21,7 +21,7 @@ OBJS := $(addprefix $(RTL_OBJ)/, $(subst .cpp,.o,$(SOURCES)))
 # ------------------------------------------------------------------------------
 # targets
 # ------------------------------------------------------------------------------
-core: $(BUILD_DIR)/algol.exe
+core: $(BUILD_DIR)/Algol.exe
 
 .SECONDARY: $(OBJS)
 

@@ -16,8 +16,8 @@
  * OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  */
 
-// File: perseus_tb.cpp
-// Testbench for the PERSEUS RISC-V CPU core.
+// File: bPersei_tb.cpp
+// Testbench for the bPersei (beta Persei) RISC-V CPU core.
 
 #include <cstdint>
 #include <memory>
@@ -27,7 +27,7 @@
 #include <iostream>
 #include <verilated.h>
 
-#include "VPerseus.h"
+#include "VbPersei.h"
 #include "testbench.h"
 #include "memory.h"
 
@@ -37,11 +37,11 @@
 
 // -----------------------------------------------------------------------------
 // The testbench
-class PERSEUSTB: public Testbench<VPerseus>{
+class BPERSEITB: public Testbench<VbPersei>{
 public:
         // -----------------------------------------------------------------------------
         // Testbench constructor
-        PERSEUSTB(double frequency, double timescale=1e-9): Testbench(frequency, timescale) {}
+        BPERSEITB(double frequency, double timescale=1e-9): Testbench(frequency, timescale) {}
 
         // -----------------------------------------------------------------------------
         // For benchmarks, prints data from syscall 64.
@@ -69,20 +69,22 @@ public:
                 memory.Load(progfile);
 
                 // initial values for unused ports
-                m_core->xinterrupts_i = 0;
+                m_core->xint_meip_i = 0;
+                m_core->xint_mtip_i = 0;
+                m_core->xint_msip_i = 0;
 
                 bool ok = false;
                 std::cout << "Executing file: " << progfile << std::endl;
                 for (; getTime() < max_time;) {
                         Tick();
-                        memory(m_core->wbm_mem_addr_o, m_core->wbm_mem_dat_o, m_core->wbm_mem_sel_o, m_core->wbm_mem_cyc_o, m_core->wbm_mem_stb_o,
-                               m_core->wbm_mem_we_o, m_core->wbm_mem_dat_i, m_core->wbm_mem_ack_i, m_core->wbm_mem_err_i);
+                        memory(m_core->wbm_addr_o, m_core->wbm_dat_o, m_core->wbm_sel_o, m_core->wbm_cyc_o, m_core->wbm_stb_o,
+                               m_core->wbm_we_o, m_core->wbm_dat_i, m_core->wbm_ack_i, m_core->wbm_err_i);
 
                         // check for TOHOST
-                        if(m_core->wbm_mem_addr_o == TOHOST and m_core->wbm_mem_cyc_o and m_core->wbm_mem_stb_o and m_core->wbm_mem_we_o and m_core->wbm_mem_ack_i) {
-                                if (m_core->wbm_mem_dat_o != 1) {
+                        if(m_core->wbm_addr_o == TOHOST and m_core->wbm_cyc_o and m_core->wbm_stb_o and m_core->wbm_we_o and m_core->wbm_ack_i) {
+                                if (m_core->wbm_dat_o != 1) {
                                         // check for syscalls (used by benchmarks)
-                                        const uint32_t data0 = m_core->wbm_mem_dat_o >> 2; // byte2word
+                                        const uint32_t data0 = m_core->wbm_dat_o >> 2; // byte2word
                                         const uint32_t data1 = data0 + 2;              // data is 64-bit aligned.
                                         if (memory[data0] == SYSCALL and memory[data1] == 1) {
                                                 memory[FROMHOST >> 2] = 1;
@@ -104,7 +106,7 @@ public:
                         printf("Simulation done. Time %u\n", time);
                         exit_code = 0;
                 } else if(time < max_time) {
-                        printf("Simulation error. Exit code: %08X. Time: %u\n", m_core->wbm_mem_dat_o, time);
+                        printf("Simulation error. Exit code: %08X. Time: %u\n", m_core->wbm_dat_o, time);
                         exit_code = 1;
                 } else {
                         printf("Simulation error. Timeout. Time: %u\n", time);
@@ -141,9 +143,9 @@ private:
 // -----------------------------------------------------------------------------
 // Basic help
 void PrintHelp() {
-        std::cout << "Perseus Verilator model." << std::endl;
+        std::cout << "bPersei Verilator model." << std::endl;
         std::cout << "Usage:" << std::endl;
-        std::cout << "\tPerseus.exe --frequency <core frequency> --timeout <max simulation time> --file <filename> [--trace] [--trace-directory <trace directory>]" << std::endl;
+        std::cout << "\tbPersei.exe --frequency <core frequency> --timeout <max simulation time> --file <filename> [--trace] [--trace-directory <trace directory>]" << std::endl;
 }
 
 // -----------------------------------------------------------------------------
@@ -163,12 +165,12 @@ int main(int argc, char **argv) {
         }
         const double frequency = std::stod(s_frequency);
         const uint32_t timeout = std::stoul(s_timeout);
-        std::unique_ptr<PERSEUSTB> tb(new PERSEUSTB(frequency));
+        std::unique_ptr<BPERSEITB> tb(new BPERSEITB(frequency));
         if (trace) {
                 std::string bf = s_progfile.substr(s_progfile.find_last_of("/\\") + 1);
                 std::string::size_type const p(bf.find_last_of('.'));
                 std::string binfile = bf.substr(0, p);
-                std::string vcdfile = (s_trace_dir.empty() ? "." : s_trace_dir) + "/perseus_" + binfile + ".vcd";
+                std::string vcdfile = (s_trace_dir.empty() ? "." : s_trace_dir) + "/algol_" + binfile + ".vcd";
                 tb->OpenTrace(vcdfile.data());
         }
         tb->Reset();

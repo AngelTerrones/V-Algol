@@ -8,14 +8,14 @@ from atik.cores import WB_ROM
 from atik.system.interconnect import WishboneMaster
 from atik.system.interconnect import WishboneSlave
 from atik.utils import Configuration
-from Perseus.algol import algol
-from Perseus.plic import PLIC
-from Perseus.pcr import PCR
+from Algol.bpersei import bPersei
+from Algol.plic import PLIC
+from Algol.pcr import PCR
 
 
 class AddressMap:
     """
-    Definition of memory regions for the Perseus core.
+    Definition of memory regions for the Algol core.
 
     Default regions:
     - region_0_addr_init = 0x00000000 # RAM: 2GB
@@ -69,11 +69,11 @@ class AddressMap:
 
 
 @hdl.block
-def Perseus(clk_i, rst_i, wbm_mem, wbm_io, xinterrupts_i, config):
-    """Perseus: Algol SoC"""
-    assert isinstance(wbm_mem, WishboneMaster), '[Perseus] Error: wbm_mem port must be of type WishboneMaster'
-    assert isinstance(wbm_io, WishboneMaster), '[Perseus] Error: wbm_io port must be of type WishboneMaster'
-    assert isinstance(config, Configuration), '[Perseus] Error: config data must be of type Configuration'
+def Algol(clk_i, rst_i, wbm_mem, wbm_io, xinterrupts_i, config):
+    """Algol: Algol SoC"""
+    assert isinstance(wbm_mem, WishboneMaster), '[Algol] Error: wbm_mem port must be of type WishboneMaster'
+    assert isinstance(wbm_io, WishboneMaster), '[Algol] Error: wbm_io port must be of type WishboneMaster'
+    assert isinstance(config, Configuration), '[Algol] Error: config data must be of type Configuration'
 
     enableRAM   = config.getOption('RAM', 'enable')
     enableROM   = config.getOption('ROM', 'enable')
@@ -102,7 +102,7 @@ def Perseus(clk_i, rst_i, wbm_mem, wbm_io, xinterrupts_i, config):
     xint_msip   = createSignal(0, 1)
     xint_mtip   = createSignal(0, 1)
     # instances
-    core        = algol(clk_i=clk_i, rst_i=rst_i, wbm=io_master, xint_meip_i=xint_meip, xint_mtip_i=xint_mtip, xint_msip_i=xint_msip, hart_id=0, config=config)  # noqa
+    core        = bPersei(clk_i=clk_i, rst_i=rst_i, wbm=io_master, xint_meip_i=xint_meip, xint_mtip_i=xint_mtip, xint_msip_i=xint_msip, hart_id=0, config=config)  # noqa
     plic        = PLIC(clk_i=clk_i, rst_i=rst_i, wbs_io=wbs_plic, eip_o=xint_meip, xinterrupts_i=xinterrupts_i, config=config)  # noqa
     pcr         = PCR(clk_i=clk_i, rst_i=rst_i, wbs_io=wbs_pcr, sip_o=xint_msip, tip_o=xint_mtip, config=config)  # noqa
     ram_dev     = WB_RAM(clk_i, rst_i, wbs_ram, ramSize) if enableRAM else None  # noqa
@@ -162,8 +162,8 @@ def Perseus(clk_i, rst_i, wbm_mem, wbm_io, xinterrupts_i, config):
 
 if __name__ == '__main__':
     import argparse
-    parser = argparse.ArgumentParser(description='Perseus (RISC-V processor).\nConvert to verilog script.', formatter_class=argparse.RawTextHelpFormatter)
-    parser.add_argument('-c', '--config_file', help='Perseus configuration file', type=str, required=True)
+    parser = argparse.ArgumentParser(description='Algol (RISC-V processor).\nConvert to verilog script.', formatter_class=argparse.RawTextHelpFormatter)
+    parser.add_argument('-c', '--config_file', help='Algol configuration file', type=str, required=True)
     parser.add_argument('-p', '--path', help='Path to store the verilog output file', type=str, required=True)
     parser.add_argument('-n', '--filename', help='Name for the verilog output file', type=str, required=True)
 
@@ -177,7 +177,7 @@ if __name__ == '__main__':
     wbm_io      = WishboneMaster()
     xint        = createSignal(0, 31)
     config      = Configuration(config_file)
-    dut         = Perseus(clk_i, rst_i, wbm_mem, wbm_io, xint, config)
+    dut         = Algol(clk_i, rst_i, wbm_mem, wbm_io, xint, config)
     dut.convert(path=path, name=filename, trace=False, testbench=False)
 
 # Local Variables:
