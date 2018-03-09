@@ -23,16 +23,12 @@ RISCV_PREFIX ?= riscv-none-embed-
 RISCV_GCC ?= $(RISCV_PREFIX)gcc
 RISCV_GCC_OPTS ?= -static -mcmodel=medany -fvisibility=hidden -nostdlib -nostartfiles
 RISCV_OBJDUMP ?= $(RISCV_PREFIX)objdump --disassemble-all --disassemble-zeroes --section=.text --section=.text.startup --section=.text.init --section=.data
-RISCV_OBJCOPY ?= $(RISCV_PREFIX)objcopy -O binary
 RISCV_SIM ?= spike
 
 vpath %.S $(src_dir)
 
 #------------------------------------------------------------
 # Build assembly tests
-
-%.bin: %.elf
-	$(RISCV_OBJCOPY) $< $@
 
 %.dump: %.elf
 	$(RISCV_OBJDUMP) $< > $@
@@ -68,7 +64,6 @@ $(eval $(call compile_template,rv32um,-march=rv32im -mabi=ilp32))
 $(eval $(call compile_template,rv32ua,-march=rv32ia -mabi=ilp32))
 $(eval $(call compile_template,rv32mi,-march=rv32i -mabi=ilp32))
 
-tests_bin = $(addsuffix .bin, $(tests))
 tests_dump = $(addsuffix .dump, $(tests))
 tests_hex = $(addsuffix .hex, $(tests))
 tests_out = $(addsuffix .out, $(spike_tests))
@@ -76,12 +71,12 @@ tests32_out = $(addsuffix .out32, $(spike32_tests))
 
 run: $(tests_out) $(tests32_out)
 
-junk += $(tests) $(tests_dump) $(tests_hex) $(tests_out) $(tests32_out) $(tests_elf) $(tests_bin)
+junk += $(tests) $(tests_dump) $(tests_hex) $(tests_out) $(tests32_out) $(tests_elf)
 
 #------------------------------------------------------------
 # Default
 
-all: $(tests_bin) $(tests_dump)
+all: $(tests_dump)
 
 #------------------------------------------------------------
 # Clean up

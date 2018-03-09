@@ -23,11 +23,12 @@
 #include <memory>
 #include <fstream>
 #include <iostream>
+#include "aelf.h"
 #include "memory.h"
 
 // -----------------------------------------------------------------------------
 // Constructor.
-WBMEMORY::WBMEMORY(const uint32_t nwords, const uint32_t delay) {
+WBMEMORY::WBMEMORY(const uint32_t base_addr, const uint32_t nwords, const uint32_t delay) {
         uint32_t next;
         // get the address mask, and memory size (power of 2)
         for(next = 1; next < nwords; next <<= 1);
@@ -36,6 +37,7 @@ WBMEMORY::WBMEMORY(const uint32_t nwords, const uint32_t delay) {
         m_memory    = new std::vector<uint32_t>(m_size, 0);
         m_delay     = delay;
         m_delay_cnt = 0;
+        m_base_addr = base_addr;
 }
 
 // -----------------------------------------------------------------------------
@@ -48,18 +50,26 @@ WBMEMORY::~WBMEMORY(){
 // -----------------------------------------------------------------------------
 // Load/initialize memory.
 void WBMEMORY::Load(const std::string &filename) {
-        std::unique_ptr<std::ifstream> file(new std::ifstream(filename, std::ios_base::in | std::ios_base::binary | std::ios_base::ate));
-        if (file->is_open()){
-                auto filesize = file->tellg();
-                if ((filesize >> 2) > m_size){
-                        std::cerr << "File is bigger than the memory size." << (filesize >> 2) << std::endl;
-                }
-                file->seekg(0);
-                file->read(reinterpret_cast<char *>(m_memory->data()), filesize);
-        } else {
-                std::cerr << "Unable to open file: " << filename << std::endl;
+        // WARNING: this will silently ignore loads if the memory is not large enough to hold the data.
+        uint32_t     entry;
+        ELFSECTION **section;
+        const char  *fn       = filename.data();
+        char        *mem_ptr  = reinterpret_cast<char *>(m_memory->data());
+        uint32_t     mem_size = m_size * sizeof(uint32_t);
+
+        if (not isELF(fn)){
+                std::cerr << "Invalid elf: " << filename << std::endl;
                 exit(EXIT_FAILURE);
         }
+
+        elfread(fn, entry, section);
+        for (int s = 0; section[s] != NULL; s++){
+                if (section[s]->m_start >= m_base_addr && section[s]->m_start + section[s]->m_len <= m_base_addr + mem_size){
+                        uint32_t offset = section[s]->m_start - m_base_addr;
+                        memcpy(mem_ptr + offset, section[s]->m_data, section[s]->m_len);
+                }
+        }
+        delete[] section;
 }
 
 // -----------------------------------------------------------------------------

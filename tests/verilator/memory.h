@@ -29,7 +29,7 @@
 
 class WBMEMORY{
 public:
-        WBMEMORY(const uint32_t nwords, const uint32_t delay=1);
+        WBMEMORY(const uint32_t base_addr, const uint32_t nwords, const uint32_t delay=1);
         ~WBMEMORY();
 
         void Load(const std::string &filename);
@@ -39,6 +39,7 @@ public:
         uint32_t &operator[](const uint32_t addr);
 private:
         std::vector<uint32_t> *m_memory;
+        uint32_t               m_base_addr;
         uint32_t               m_size;
         uint32_t               m_mask;
         uint32_t               m_delay;

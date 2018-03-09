@@ -69,7 +69,7 @@ build-algol: verilate-algol
 # ------------------------------------------------------------------------------
 # verilator tests
 run-bpersei-tests: compile-tests build-bpersei
-	@$(eval .RVTESTS:=$(shell find $(.RVTESTSF) -name "rv32ui*.bin" -o -name "rv32mi*.bin" ! -name "*breakpoint*.bin"))
+	@$(eval .RVTESTS:=$(shell find $(.RVTESTSF) -name "rv32ui*.elf" -o -name "rv32mi*.elf" ! -name "*breakpoint*.elf"))
 	@for file in $(.RVTESTS); do \
 		$(.BPERSEICMD) $$file > /dev/null; \
 		if [ $$? -eq 0 ]; then \
@@ -80,7 +80,7 @@ run-bpersei-tests: compile-tests build-bpersei
 	done
 
 run-bpersei-benchmarks: compile-benchmarks build-bpersei
-	@$(eval .RVBENCHMARKS:=$(shell find $(.RVBENCHMARKSF) -name "*.bin"))
+	@$(eval .RVBENCHMARKS:=$(shell find $(.RVBENCHMARKSF) -name "*.riscv"))
 	@for file in $(.RVBENCHMARKS); do \
 		$(.BPERSEICMD) $$file > /dev/null; \
 		if [ $$? -eq 0 ]; then \
@@ -92,7 +92,7 @@ run-bpersei-benchmarks: compile-benchmarks build-bpersei
 
 # ----------------------------
 run-algol-tests: compile-tests build-algol
-	@$(eval .RVTESTS:=$(shell find $(.RVTESTSF) -name "rv32ui*.bin" -o -name "rv32mi*.bin" ! -name "*breakpoint*.bin"))
+	@$(eval .RVTESTS:=$(shell find $(.RVTESTSF) -name "rv32ui*.elf" -o -name "rv32mi*.elf" ! -name "*breakpoint*.elf"))
 	@for file in $(.RVTESTS); do \
 		$(.ALGOLCMD) $$file > /dev/null; \
 		if [ $$? -eq 0 ]; then \
@@ -103,7 +103,7 @@ run-algol-tests: compile-tests build-algol
 	done
 
 run-algol-benchmarks: compile-benchmarks build-algol
-	@$(eval .RVBENCHMARKS:=$(shell find $(.RVBENCHMARKSF) -name "*.bin"))
+	@$(eval .RVBENCHMARKS:=$(shell find $(.RVBENCHMARKSF) -name "*.riscv"))
 	@for file in $(.RVBENCHMARKS); do \
 		$(.ALGOLCMD) $$file > /dev/null; \
 		if [ $$? -eq 0 ]; then \

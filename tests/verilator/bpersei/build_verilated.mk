@@ -11,11 +11,17 @@ VERILATOR_ROOT ?= $(shell bash -c 'verilator -V|grep VERILATOR_ROOT | head -1 | 
 VROOT := $(VERILATOR_ROOT)
 VINCD := $(VROOT)/include
 VINC := -I$(VINCD) -I$(VINCD)/vltstd -I$(RTL_OBJ)
-INCS := $(VINC) -Itests/verilator
+
+ifeq ($(OS),Windows_NT)
+	INCS := $(VINC) -Itests/verilator -I /mingw64/include/libelf
+else
+	INCS := $(VINC) -Itests/verilator
+endif
+
 VOBJS := $(RTL_OBJ)/verilated.o $(RTL_OBJ)/verilated_vcd_c.o
 
-SOURCES := bPersei_tb.cpp memory.cpp
-HEADERS := memory.h testbench.h
+SOURCES := bPersei_tb.cpp memory.cpp aelf.cpp
+HEADERS := memory.h testbench.h aelf.h
 
 OBJS := $(addprefix $(RTL_OBJ)/, $(subst .cpp,.o,$(SOURCES)))
 # ------------------------------------------------------------------------------
@@ -39,7 +45,7 @@ $(VOBJS): $(RTL_OBJ)/%.o: $(VINCD)/%.cpp
 
 $(BUILD_DIR)/%.exe: $(VOBJS) $(OBJS) $(RTL_OBJ)/V%__ALL.a
 	@printf "%b" "$(COM_COLOR)$(COM_STRING)$(OBJ_COLOR) $(@F)$(NO_COLOR)\n"
-	@$(CXX) $(INCS) $^ -o $@
+	@$(CXX) $(INCS) $^ -lelf -o $@
 	@printf "%b" "$(MSJ_COLOR)Compilation $(OK_COLOR)$(OK_STRING)$(NO_COLOR)\n"
 
 .PHONY: default clean distclean all core

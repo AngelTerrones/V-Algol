@@ -34,7 +34,6 @@ RISCV_GCC_OPTS ?= -DPREALLOCATE=1 -mcmodel=medany -static -std=gnu99 -O2 -ffast-
 RISCV_LINK ?= $(RISCV_GCC) -T $(src_dir)/common/test.ld $(incs)
 RISCV_LINK_OPTS ?= -static -nostdlib -nostartfiles -lm -lgcc -T $(src_dir)/common/test.ld
 RISCV_OBJDUMP ?= $(RISCV_PREFIX)objdump --disassemble-all --disassemble-zeroes --section=.text.init --section=.text --section=.text.startup --section=.data
-RISCV_OBJCOPY ?= $(RISCV_PREFIX)objcopy -O binary
 RISCV_SIM ?= spike --isa=rv$(XLEN)gc
 
 incs  += -I$(src_dir)/../riscv-tests/env -I$(src_dir)/common $(addprefix -I$(src_dir)/, $(bmarks))
@@ -51,12 +50,8 @@ $(foreach bmark,$(bmarks),$(eval $(call compile_template,$(bmark))))
 # Build and run benchmarks on riscv simulator
 
 bmarks_riscv      = $(addsuffix .riscv,  $(bmarks))
-bmarks_riscv_bin  = $(addsuffix .bin,  $(bmarks))
 bmarks_riscv_dump = $(addsuffix .riscv.dump, $(bmarks))
 bmarks_riscv_out  = $(addsuffix .riscv.out,  $(bmarks))
-
-$(bmarks_riscv_bin): %.bin: %.riscv
-	$(RISCV_OBJCOPY) $< $@
 
 $(bmarks_riscv_dump): %.riscv.dump: %.riscv
 	$(RISCV_OBJDUMP) $< > $@
@@ -64,10 +59,10 @@ $(bmarks_riscv_dump): %.riscv.dump: %.riscv
 #$(bmarks_riscv_out): %.riscv.out: %.riscv
 #	$(RISCV_SIM) $< > $@
 
-riscv: $(bmarks_riscv_bin) $(bmarks_riscv_dump)
+riscv: $(bmarks_riscv_dump)
 #run: $(bmarks_riscv_out)
 
-junk += $(bmarks_riscv) $(bmarks_riscv_dump) $(bmarks_riscv_hex) $(bmarks_riscv_out) $(bmarks_riscv_bin)
+junk += $(bmarks_riscv) $(bmarks_riscv_dump) $(bmarks_riscv_hex) $(bmarks_riscv_out)
 
 #------------------------------------------------------------
 # Default
