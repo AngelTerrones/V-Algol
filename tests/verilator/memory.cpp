@@ -20,6 +20,7 @@
 // Wishbone memory device.
 // 32-bits address & data bus.
 
+#include <cstring>
 #include <memory>
 #include <fstream>
 #include <iostream>
@@ -66,7 +67,7 @@ void WBMEMORY::Load(const std::string &filename) {
         for (int s = 0; section[s] != NULL; s++){
                 if (section[s]->m_start >= m_base_addr && section[s]->m_start + section[s]->m_len <= m_base_addr + mem_size){
                         uint32_t offset = section[s]->m_start - m_base_addr;
-                        memcpy(mem_ptr + offset, section[s]->m_data, section[s]->m_len);
+			std::memcpy(mem_ptr + offset, section[s]->m_data, section[s]->m_len);
                 }
         }
         delete[] section;
