@@ -37,7 +37,7 @@
 
 // -----------------------------------------------------------------------------
 // The testbench
-class ALGOLTB: public Testbench<VAlgol>{
+class ALGOLTB: public Testbench<VAlgol> {
 public:
         // -----------------------------------------------------------------------------
         // Testbench constructor
@@ -45,13 +45,13 @@ public:
 
         // -----------------------------------------------------------------------------
         // For benchmarks, prints data from syscall 64.
-        void SyscallPrint(WBMEMORY &memory, const uint32_t base_addr){
+        void SyscallPrint(WBMEMORY &memory, const uint32_t base_addr) {
                 const uint32_t data_addr = memory[base_addr + 4];
                 const uint32_t size      = memory[base_addr + 6];
                 for (uint32_t ii = 0; ii < size; ii += 4) {
                         // the data_addr must be 32-bit aligned, so no need to check the lower boundary.
-                        const uint32_t addr = data_addr + ii;
-                        const uint32_t data = memory[addr >> 2];
+                        const uint32_t addr        = data_addr + ii;
+                        const uint32_t data        = memory[addr >> 2];
                         const uint32_t addr_masked = addr & 0xfffffffc;
                         if (addr_masked <= data_addr + size) printf("%c", data & 0xff);
                         if (addr_masked + 1 <= data_addr + size) printf("%c", (data >> 8) & 0xff);
@@ -79,7 +79,7 @@ public:
                                m_core->wbm_mem_we_o, m_core->wbm_mem_dat_i, m_core->wbm_mem_ack_i, m_core->wbm_mem_err_i);
 
                         // check for TOHOST
-                        if(m_core->wbm_mem_addr_o == TOHOST and m_core->wbm_mem_cyc_o and m_core->wbm_mem_stb_o and m_core->wbm_mem_we_o and m_core->wbm_mem_ack_i) {
+                        if (m_core->wbm_mem_addr_o == TOHOST and m_core->wbm_mem_cyc_o and m_core->wbm_mem_stb_o and m_core->wbm_mem_we_o and m_core->wbm_mem_ack_i) {
                                 if (m_core->wbm_mem_dat_o != 1) {
                                         // check for syscalls (used by benchmarks)
                                         const uint32_t data0 = m_core->wbm_mem_dat_o >> 2; // byte2word
@@ -103,7 +103,7 @@ public:
                 if (ok) {
                         printf("Simulation done. Time %u\n", time);
                         exit_code = 0;
-                } else if(time < max_time) {
+                } else if (time < max_time) {
                         printf("Simulation error. Exit code: %08X. Time: %u\n", m_core->wbm_mem_dat_o, time);
                         exit_code = 1;
                 } else {
@@ -117,7 +117,7 @@ public:
 // -----------------------------------------------------------------------------
 //  from https://stackoverflow.com/questions/865668/how-to-parse-command-line-arguments-in-c
 //  author: iain
-class INPUTPARSER{
+class INPUTPARSER {
 public:
         INPUTPARSER(int &argc, char **argv) {
                 for (int ii = 0; ii < argc; ii++)

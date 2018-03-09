@@ -23,7 +23,7 @@
 
 #include <cstdint>
 
-class ELFSECTION{
+class ELFSECTION {
 public:
         uint32_t m_start;
         uint32_t m_len;

@@ -37,41 +37,39 @@
 #endif
 
 // -----------------------------------------------------------------------------
-bool isELF(const char *filename)
-{
+bool isELF(const char *filename) {
         FILE *fp;
         fp = fopen(filename, "rb");
 
-        if(fp == NULL) return false;
-        if(fgetc(fp) != 0x7f) return false;
-        if(fgetc(fp) != 'E') return false;
-        if(fgetc(fp) != 'L') return false;
-        if(fgetc(fp) != 'F') return false;
+        if (fp == NULL) return false;
+        if (fgetc(fp) != 0x7f) return false;
+        if (fgetc(fp) != 'E') return false;
+        if (fgetc(fp) != 'L') return false;
+        if (fgetc(fp) != 'F') return false;
         fclose(fp);
         return true;
 }
 
-void elfread(const char *filename, uint32_t &entry, ELFSECTION **&sections)
-{
+void elfread(const char *filename, uint32_t &entry, ELFSECTION **&sections) {
         // Initialize library
-        if (elf_version(EV_CURRENT) == EV_NONE){
+        if (elf_version(EV_CURRENT) == EV_NONE) {
                 std::cerr << "ELF library initialization failed, " << elf_errmsg(-1) << std::endl;
                 exit(EXIT_FAILURE);
         }
         // open filename
         int fd = open(filename, O_RDONLY | O_BINARY, 0);
-        if (fd < 0){
+        if (fd < 0) {
                 std::cerr << "Unable to open file, " << filename << std::endl;
                 exit(EXIT_FAILURE);
         }
         Elf *elf = elf_begin(fd, ELF_C_READ, NULL);
-        if (elf == NULL){
+        if (elf == NULL) {
                 std::cerr << "elf_begin() failed, " << elf_errmsg(-1);
                 exit(EXIT_FAILURE);
         }
         // Check ELF type
         Elf_Kind ek = elf_kind(elf);
-        switch (ek){
+        switch (ek) {
         case ELF_K_AR:
                 std::cerr << "AR archive. Abort." << std::endl;
                 exit(EXIT_FAILURE);
@@ -87,23 +85,23 @@ void elfread(const char *filename, uint32_t &entry, ELFSECTION **&sections)
 
         // Get ELF executable header
         GElf_Ehdr ehdr;
-        if (gelf_getehdr(elf, &ehdr) == NULL){
+        if (gelf_getehdr(elf, &ehdr) == NULL) {
                 std::cerr << "getehdr() failed: " << elf_errmsg(-1) << std::endl;
                 exit(EXIT_FAILURE);
         }
         // check ELF class
         int elfclass = gelf_getclass(elf);
-        if (elfclass == ELFCLASSNONE){
+        if (elfclass == ELFCLASSNONE) {
                 std::cerr << "getclass() failed: " << elf_errmsg(-1) << std::endl;
                 exit(EXIT_FAILURE);
         }
-        if (elfclass != ELFCLASS32){
+        if (elfclass != ELFCLASS32) {
                 std::cerr << "64-bit ELF file. Unsupported file. Abort" << std::endl;
                 exit(EXIT_FAILURE);
         }
         // get indent
         char *id = elf_getident(elf, NULL);
-        if (id == NULL){
+        if (id == NULL) {
                 std::cerr << "getident() failed: " << elf_errmsg(-1) << std::endl;
                 exit(EXIT_FAILURE);
         }
@@ -123,7 +121,7 @@ void elfread(const char *filename, uint32_t &entry, ELFSECTION **&sections)
 #endif
 
         // check for a RISC-V ELF file (EM_RISCV == 243)
-        if(ehdr.e_machine != 243){
+        if (ehdr.e_machine != 243) {
                 std::cerr << "This is not a RISC-V ELF file: " << ehdr.e_machine << std::endl;
                 exit(EXIT_FAILURE);
         }
@@ -131,7 +129,7 @@ void elfread(const char *filename, uint32_t &entry, ELFSECTION **&sections)
         // get executable header
         entry = ehdr.e_entry; // ??
         size_t n;
-        if (elf_getphdrnum(elf, &n) != 0){
+        if (elf_getphdrnum(elf, &n) != 0) {
                 std::cerr << "elf_getphdrnum() failed: " << elf_errmsg(-1) << std::endl;
                 exit(EXIT_FAILURE);
         }
@@ -141,8 +139,8 @@ void elfread(const char *filename, uint32_t &entry, ELFSECTION **&sections)
         GElf_Phdr phdr;
 
         // read program header
-        for (size_t i = 0; i < n; i++){
-                if (gelf_getphdr(elf, i, &phdr) != &phdr){
+        for (size_t i = 0; i < n; i++) {
+                if (gelf_getphdr(elf, i, &phdr) != &phdr) {
                         std::cerr << "getphdr() failed: " << elf_errmsg(-1) << std::endl;
                         exit(EXIT_FAILURE);
                 }
@@ -161,7 +159,6 @@ void elfread(const char *filename, uint32_t &entry, ELFSECTION **&sections)
                 printf("]\n");
                 printf("   %-20s 0x%jx\n", "p_align", (uintmax_t)phdr.p_align);
 #endif
-
                 total_bytes += sizeof(ELFSECTION *) + sizeof(ELFSECTION) + phdr.p_memsz;
         }
         // reserve memory for a linked list.
@@ -171,8 +168,8 @@ void elfread(const char *filename, uint32_t &entry, ELFSECTION **&sections)
         // set the initial pointer
         sections = (ELFSECTION **)data;
         size_t current_offset = (n + 1) * sizeof(ELFSECTION *);
-        for (size_t i = 0; i < n; i++){
-                if (gelf_getphdr(elf, i, &phdr) != &phdr){
+        for (size_t i = 0; i < n; i++) {
+                if (gelf_getphdr(elf, i, &phdr) != &phdr) {
                         std::cerr << "getphdr() failed: " << elf_errmsg(-1) << std::endl;
                         exit(EXIT_FAILURE);
                 }
@@ -180,17 +177,17 @@ void elfread(const char *filename, uint32_t &entry, ELFSECTION **&sections)
                 sections[i]->m_start = phdr.p_paddr;
                 sections[i]->m_len   = phdr.p_filesz;
                 // read/copy section
-                if (lseek(fd, phdr.p_offset, SEEK_SET) < 0){
+                if (lseek(fd, phdr.p_offset, SEEK_SET) < 0) {
                         std::stringstream ss;
                         ss << "Unable to seek file position " << std::hex << phdr.p_offset;
                         std::cerr << ss.str() << std::endl;
                         exit(EXIT_FAILURE);
                 }
-                if (phdr.p_filesz > phdr.p_memsz){
+                if (phdr.p_filesz > phdr.p_memsz) {
                         std::cerr << "[WARNING] filesz > p_memsz" << std::endl;
                         phdr.p_filesz = 0;
                 }
-                if (read(fd, sections[i]->m_data, phdr.p_filesz) != (int)phdr.p_filesz){
+                if (read(fd, sections[i]->m_data, phdr.p_filesz) != (int)phdr.p_filesz) {
                         std::cerr << "Unable to read the entire section." << std::endl;
                         exit(EXIT_FAILURE);
                 }

@@ -27,7 +27,7 @@
 #ifndef __MEMORY_H
 #define __MEMORY_H
 
-class WBMEMORY{
+class WBMEMORY {
 public:
         WBMEMORY(const uint32_t base_addr, const uint32_t nwords, const uint32_t delay=1);
         ~WBMEMORY();

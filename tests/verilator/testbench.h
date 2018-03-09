@@ -26,7 +26,7 @@
 #include <verilated.h>
 #include <verilated_vcd_c.h>
 
-template <class DUT> class Testbench{
+template <class DUT> class Testbench {
 public:
         Testbench(double frequency, double timescale=1e-9): m_core(new DUT), m_tick_count(0) {
                 Verilated::traceEverOn(true);
@@ -38,53 +38,53 @@ public:
                 m_tickdivh = m_tickdiv/2;
         }
 
-        uint32_t getTime(){
+        uint32_t getTime() {
                 return m_tick_count * m_tickdiv;
         }
 
-        virtual ~Testbench(){
-                if(m_trace)
+        virtual ~Testbench() {
+                if (m_trace)
                         m_trace->close();
                 //m_core.reset(nullptr);
         }
 
-        virtual void OpenTrace(const char *filename){
-                if(!m_trace){
+        virtual void OpenTrace(const char *filename) {
+                if (!m_trace) {
                         m_trace.reset(new VerilatedVcdC);
                         m_core->trace(m_trace.get(), 99);
                         m_trace->open(filename);
                 }
         }
 
-        virtual void CloseTrace(){
-                if(m_trace)
+        virtual void CloseTrace() {
+                if (m_trace)
                         m_trace->close();
         }
 
-        virtual void Evaluate(){
+        virtual void Evaluate() {
                 m_core->eval();
         }
 
-        virtual void Tick(){
+        virtual void Tick() {
                 m_tick_count++;
                 Evaluate();
-                if(m_trace)
+                if (m_trace)
                         m_trace->dump(m_tickdiv * m_tick_count - m_tickdivh);
                 m_core->clk_i = 0;
                 Evaluate();
-                if(m_trace)
+                if (m_trace)
                         m_trace->dump(m_tickdiv * m_tick_count);
                 m_core->clk_i = 1;
                 Evaluate();
-                if(m_trace){
+                if (m_trace) {
                         m_trace->dump(m_tickdiv * m_tick_count + m_tickdivh);
                         m_trace->flush();
                 }
         }
 
-        virtual void Reset(unsigned int ticks=5){
+        virtual void Reset(unsigned int ticks=5) {
                 m_core->rst_i = 1;
-                for(unsigned int i = 0; i < ticks; i++)
+                for (unsigned int i = 0; i < ticks; i++)
                         Tick();
                 m_core->rst_i = 0;
         }

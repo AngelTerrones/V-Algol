@@ -32,7 +32,7 @@
 WBMEMORY::WBMEMORY(const uint32_t base_addr, const uint32_t nwords, const uint32_t delay) {
         uint32_t next;
         // get the address mask, and memory size (power of 2)
-        for(next = 1; next < nwords; next <<= 1);
+        for (next = 1; next < nwords; next <<= 1);
         m_size      = next;
         m_mask      = next - 1;
         m_memory    = new std::vector<uint32_t>(m_size, 0);
@@ -43,7 +43,7 @@ WBMEMORY::WBMEMORY(const uint32_t base_addr, const uint32_t nwords, const uint32
 
 // -----------------------------------------------------------------------------
 // Destructor.
-WBMEMORY::~WBMEMORY(){
+WBMEMORY::~WBMEMORY() {
         m_memory->clear();  // (._.') ??
         delete m_memory;
 }
@@ -58,16 +58,16 @@ void WBMEMORY::Load(const std::string &filename) {
         char        *mem_ptr  = reinterpret_cast<char *>(m_memory->data());
         uint32_t     mem_size = m_size * sizeof(uint32_t);
 
-        if (not isELF(fn)){
+        if (not isELF(fn)) {
                 std::cerr << "Invalid elf: " << filename << std::endl;
                 exit(EXIT_FAILURE);
         }
 
         elfread(fn, entry, section);
-        for (int s = 0; section[s] != NULL; s++){
-                if (section[s]->m_start >= m_base_addr && section[s]->m_start + section[s]->m_len <= m_base_addr + mem_size){
+        for (int s = 0; section[s] != NULL; s++) {
+                if (section[s]->m_start >= m_base_addr && section[s]->m_start + section[s]->m_len <= m_base_addr + mem_size) {
                         uint32_t offset = section[s]->m_start - m_base_addr;
-			std::memcpy(mem_ptr + offset, section[s]->m_data, section[s]->m_len);
+                        std::memcpy(mem_ptr + offset, section[s]->m_data, section[s]->m_len);
                 }
         }
         delete[] section;
@@ -77,7 +77,7 @@ void WBMEMORY::Load(const std::string &filename) {
 // Execute model: read/write operations.
 void WBMEMORY::operator()(const uint32_t wbs_addr_i, const uint32_t wbs_dat_i, const uint8_t wbs_sel_i,
                           const uint8_t wbs_cyc_i, const uint8_t wbs_stb_i, const uint8_t wbs_we_i,
-                          uint32_t &wbs_data_o, uint8_t &wbs_ack_o, uint8_t &wbs_err_o){
+                          uint32_t &wbs_data_o, uint8_t &wbs_ack_o, uint8_t &wbs_err_o) {
         // assume this is called every clock cycle
         wbs_data_o = 0xdeadf00d;
         wbs_ack_o  = 0;
@@ -85,9 +85,9 @@ void WBMEMORY::operator()(const uint32_t wbs_addr_i, const uint32_t wbs_dat_i, c
 
         auto addr = (wbs_addr_i >> 2) & m_mask; // Byte address to word address.
 
-        if (wbs_cyc_i and wbs_stb_i){
-                if (m_delay_cnt++ == m_delay){
-                        if (wbs_we_i){
+        if (wbs_cyc_i and wbs_stb_i) {
+                if (m_delay_cnt++ == m_delay) {
+                        if (wbs_we_i) {
                                 auto b0 = (wbs_sel_i & 0x01 ? wbs_dat_i : (*m_memory)[addr]) & 0x000000ff;
                                 auto b1 = (wbs_sel_i & 0x02 ? wbs_dat_i : (*m_memory)[addr]) & 0x0000ff00;
                                 auto b2 = (wbs_sel_i & 0x04 ? wbs_dat_i : (*m_memory)[addr]) & 0x00ff0000;
@@ -103,6 +103,6 @@ void WBMEMORY::operator()(const uint32_t wbs_addr_i, const uint32_t wbs_dat_i, c
 }
 
 // -----------------------------------------------------------------------------
-uint32_t &WBMEMORY::operator[](const uint32_t addr){
+uint32_t &WBMEMORY::operator[](const uint32_t addr) {
         return (*m_memory)[addr];
 }
