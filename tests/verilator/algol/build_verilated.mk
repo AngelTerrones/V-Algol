@@ -20,8 +20,7 @@ endif
 
 VOBJS := $(RTL_OBJ)/verilated.o $(RTL_OBJ)/verilated_vcd_c.o
 
-SOURCES := algol_tb.cpp memory.cpp aelf.cpp
-HEADERS := memory.h testbench.h aelf.h
+SOURCES := algol_tb.cpp wbmemory.cpp aelf.cpp
 
 OBJS := $(addprefix $(RTL_OBJ)/, $(subst .cpp,.o,$(SOURCES)))
 # ------------------------------------------------------------------------------

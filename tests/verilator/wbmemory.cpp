@@ -20,12 +20,10 @@
 // Wishbone memory device.
 // 32-bits address & data bus.
 
-#include <cstring>
 #include <memory>
-#include <fstream>
-#include <iostream>
+#include <cstring>
 #include "aelf.h"
-#include "memory.h"
+#include "wbmemory.h"
 
 // -----------------------------------------------------------------------------
 // Constructor.
@@ -52,6 +50,7 @@ WBMEMORY::~WBMEMORY() {
 // Load/initialize memory.
 void WBMEMORY::Load(const std::string &filename) {
         // WARNING: this will silently ignore loads if the memory is not large enough to hold the data.
+        // TODO: print a warning maybe?
         uint32_t     entry;
         ELFSECTION **section;
         const char  *fn       = filename.data();
@@ -59,12 +58,12 @@ void WBMEMORY::Load(const std::string &filename) {
         uint32_t     mem_size = m_size * sizeof(uint32_t);
 
         if (not isELF(fn)) {
-                std::cerr << "Invalid elf: " << filename << std::endl;
+                fprintf(stderr, "[WBMEMORY] Invalid elf: %s\n", filename.c_str());
                 exit(EXIT_FAILURE);
         }
 
         elfread(fn, entry, section);
-        for (int s = 0; section[s] != NULL; s++) {
+        for (int s = 0; section[s] != nullptr; s++) {
                 if (section[s]->m_start >= m_base_addr && section[s]->m_start + section[s]->m_len <= m_base_addr + mem_size) {
                         uint32_t offset = section[s]->m_start - m_base_addr;
                         std::memcpy(mem_ptr + offset, section[s]->m_data, section[s]->m_len);

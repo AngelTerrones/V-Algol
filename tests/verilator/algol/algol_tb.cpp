@@ -29,7 +29,7 @@
 
 #include "VAlgol.h"
 #include "testbench.h"
-#include "memory.h"
+#include "wbmemory.h"
 
 #define TOHOST 0x1000
 #define FROMHOST 0x1040
