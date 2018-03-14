@@ -24,7 +24,6 @@
 #include <string>
 #include <vector>
 #include <algorithm>
-#include <iostream>
 #include <verilated.h>
 
 #include "VAlgol.h"
@@ -72,7 +71,8 @@ public:
                 m_core->xinterrupts_i = 0;
 
                 bool ok = false;
-                std::cout << "Executing file: " << progfile << std::endl;
+                printf("\nExecuting file: %s\n", progfile.c_str());
+                printf("--------------------------------------------------------------------------------\n");
                 for (; getTime() < max_time;) {
                         Tick();
                         memory(m_core->wbm_mem_addr_o, m_core->wbm_mem_dat_o, m_core->wbm_mem_sel_o, m_core->wbm_mem_cyc_o, m_core->wbm_mem_stb_o,
@@ -141,9 +141,9 @@ private:
 // -----------------------------------------------------------------------------
 // Basic help
 void PrintHelp() {
-        std::cout << "Algol Verilator model." << std::endl;
-        std::cout << "Usage:" << std::endl;
-        std::cout << "\tAlgol.exe --frequency <core frequency> --timeout <max simulation time> --file <filename> [--trace] [--trace-directory <trace directory>]" << std::endl;
+        printf("Algol Verilator model.\n");
+        printf("Usage:\n");
+        printf("\tAlgol.exe --frequency <core frequency> --timeout <max simulation time> --file <filename> [--trace] [--trace-directory <trace directory>]\n");
 }
 
 // -----------------------------------------------------------------------------

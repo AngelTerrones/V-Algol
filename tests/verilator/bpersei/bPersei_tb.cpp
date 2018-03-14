@@ -24,7 +24,6 @@
 #include <string>
 #include <vector>
 #include <algorithm>
-#include <iostream>
 #include <verilated.h>
 
 #include "VbPersei.h"
@@ -74,7 +73,8 @@ public:
                 m_core->xint_msip_i = 0;
 
                 bool ok = false;
-                std::cout << "Executing file: " << progfile << std::endl;
+                printf("\nExecuting file: %s\n", progfile.c_str());
+                printf("--------------------------------------------------------------------------------\n");
                 for (; getTime() < max_time;) {
                         Tick();
                         memory(m_core->wbm_addr_o, m_core->wbm_dat_o, m_core->wbm_sel_o, m_core->wbm_cyc_o, m_core->wbm_stb_o,
@@ -143,9 +143,9 @@ private:
 // -----------------------------------------------------------------------------
 // Basic help
 void PrintHelp() {
-        std::cout << "bPersei Verilator model." << std::endl;
-        std::cout << "Usage:" << std::endl;
-        std::cout << "\tbPersei.exe --frequency <core frequency> --timeout <max simulation time> --file <filename> [--trace] [--trace-directory <trace directory>]" << std::endl;
+        printf("bPersei Verilator model.\n");
+        printf("Usage:\n");
+        printf("\tbPersei.exe --frequency <core frequency> --timeout <max simulation time> --file <filename> [--trace] [--trace-directory <trace directory>]\n");
 }
 
 // -----------------------------------------------------------------------------
