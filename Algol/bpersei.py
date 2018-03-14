@@ -65,8 +65,7 @@ def bPersei(clk_i,
 
     return hdl.instances()
 
-
-bPersei.verilog_code = get_template('bPersei.v')
+bPersei.verilog_code = get_template('Algol/bPersei.v')  # path relative to root
 
 # Local Variables:
 # flycheck-flake8-maximum-line-length: 200

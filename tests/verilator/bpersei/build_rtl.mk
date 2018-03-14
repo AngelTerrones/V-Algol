@@ -13,7 +13,7 @@ include tests/verilator/pprint.mk
 # ------------------------------------------------------------------------------
 core: $(.VOBJ)/VbPersei__ALL.a
 
-$(.VOBJ)/VbPersei__ALL.a: bPersei.v
+$(.VOBJ)/VbPersei__ALL.a: Algol/bPersei.v
 	@printf "%b" "$(COM_COLOR)$(VER_STRING)$(OBJ_COLOR) $<$(NO_COLOR)\n"
 	+@$(.VERILATE) $<
 	@printf "%b" "$(COM_COLOR)$(COM_STRING)$(OBJ_COLOR) $(@F)$(NO_COLOR)\n"

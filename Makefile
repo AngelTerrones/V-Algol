@@ -54,7 +54,7 @@ build-bpersei: verilate-bpersei
 	+@$(.SUBMAKE) -f $(.VCOREMK_BPERSEI) core BUILD_DIR=$(.BFOLDER)
 
 # ----------------------------
-$(.BFOLDER)/Algol.v: bPersei.v $(.PFILES)
+$(.BFOLDER)/Algol.v: Algol/bPersei.v $(.PFILES)
 	@printf "%b" "$(MSJ_COLOR)myHDL to verilog$(NO_COLOR)\n"
 	@mkdir -p $(.BFOLDER)
 	@PYTHONPATH=$(PWD) $(.PYTHON) Algol/algol.py -c tests/settings/algol_RV32I.ini -p $(.BFOLDER) -n Algol
