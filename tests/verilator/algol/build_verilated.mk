@@ -5,7 +5,7 @@
 include tests/verilator/pprint.mk
 
 CXX := g++
-CFLAGS := -std=c++11 -Wall -O3 #-DDEBUG -g
+CFLAGS := -std=c++17 -Wall -O3 -faligned-new #-DDEBUG -g
 RTL_OBJ := $(BUILD_DIR)/Algol_obj
 VERILATOR_ROOT ?= $(shell bash -c 'verilator -V|grep VERILATOR_ROOT | head -1 | sed -e " s/^.*=\s*//"')
 VROOT := $(VERILATOR_ROOT)
@@ -40,7 +40,7 @@ $(RTL_OBJ)/%.o: tests/verilator/algol/%.cpp
 
 $(VOBJS): $(RTL_OBJ)/%.o: $(VINCD)/%.cpp
 	@printf "%b" "$(COM_COLOR)$(COM_STRING)$(OBJ_COLOR) $(@F) $(NO_COLOR)\n"
-	@$(CXX) $(CFLAGS) $(INCS) -c $< -o $@
+	@$(CXX) $(CFLAGS) $(INCS) -Wno-format -c $< -o $@
 
 $(BUILD_DIR)/%.exe: $(VOBJS) $(OBJS) $(RTL_OBJ)/V%__ALL.a
 	@printf "%b" "$(COM_COLOR)$(COM_STRING)$(OBJ_COLOR) $(@F)$(NO_COLOR)\n"
