@@ -20,6 +20,8 @@
 // ELF loader for RISC-V ELF files
 
 #include <cstdio>
+#include <cstring>
+#include <cstdlib>
 #include <cassert>
 #include <gelf.h>
 #include <libelf.h>
