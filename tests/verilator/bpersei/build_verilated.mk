@@ -13,7 +13,7 @@ VINCD := $(VROOT)/include
 VINC := -I$(VINCD) -I$(VINCD)/vltstd -I$(RTL_OBJ)
 
 ifeq ($(OS),Windows_NT)
-	INCS := $(VINC) -Itests/verilator -I /mingw64/include/libelf
+	INCS := $(VINC) -Itests/verilator -I /mingw$(shell getconf LONG_BIT)/include/libelf
 else
 	INCS := $(VINC) -Itests/verilator
 endif
