@@ -3,8 +3,6 @@
 
 import myhdl as hdl
 from atik.utils import createSignal
-from atik.cores import WB_RAM
-from atik.cores import WB_ROM
 from atik.system.interconnect import WishboneMaster
 from atik.system.interconnect import WishboneSlave
 from atik.utils import Configuration
@@ -18,29 +16,28 @@ class AddressMap:
     Definition of memory regions for the Algol core.
 
     Default regions:
-    - region_0_addr_init = 0x00000000 # RAM: 2GB
+    - region_0_addr_init = 0x00000000 # RAM 0: 2 GB
     - region_0_addr_end  = 0x7FFFFFFF #
-    - region_1_addr_init = 0x80000000 # I/O: 1 GB
+    - region_1_addr_init = 0x80000000 # I/O: 1 GB (needs external bus)
     - region_1_addr_end  = 0xBFFFFFFF #
-    - region_2_addr_init = 0xC0000000 # ROM: 384 MB
-    - region_2_addr_end  = 0xD7FFFFFF #
-    - region_3_addr_init = 0xD8000000 # BRAM: 384 MB
-    - region_3_addr_end  = 0xEFFFFFFF #
-    - region_4_addr_init = 0xF0000000 # PLIC: 64MB
-    - region_4_addr_end  = 0xF3FFFFFF #
-    - region_5_addr_init = 0xF4000000 # PCR: 64MB
-    - region_5_addr_end  = 0xF7FFFFFF #
-    - region_6_addr_init = 0xF8000000 # (Unimplemented) DEBUG: 128 MB
-    - region_6_addr_end  = 0xFFFFFFFF #
+    - region_2_addr_init = 0xC0000000 # RAM 1: 512 MB
+    - region_2_addr_end  = 0xDFFFFFFF #
+    - region_3_addr_init = 0xE0000000 # PLIC: 128 MB (internal module)
+    - region_3_addr_end  = 0xE7FFFFFF #
+    - region_4_addr_init = 0xE8000000 # PCR: 128 MB (internal module)
+    - region_4_addr_end  = 0xEFFFFFFF #
+    - region_5_addr_init = 0xF0000000 # (Unimplemented) DEBUG: 256 MB (internal module)
+    - region_5_addr_end  = 0xFFFFFFFF #
     """
     # Indexes
-    external_ram_index = 0
-    io_index           = 1
-    plic_index         = 2
-    pcr_index          = 3
+    ram_0_index = 0
+    io_index    = 1
+    ram_1_index = 2
+    plic_index  = 3
+    pcr_index   = 4
 
     @staticmethod
-    def access_external_ram(address):
+    def access_ram_0(address):
         return address[31] == 0
 
     @staticmethod
@@ -48,46 +45,35 @@ class AddressMap:
         return address[32:30] == 0b10
 
     @staticmethod
-    def access_rom(address):
-        return address[32:24] >= 0xc0 and address[32:24] < 0xd8
-
-    @staticmethod
-    def access_ram(address):
-        return address[32:24] >= 0xd8 and address[32:24] < 0xf0
+    def access_ram_1(address):
+        return address[32:29] == 0b110
 
     @staticmethod
     def access_plic(address):
-        return address[32:24] >= 0xf0 and address[32:24] < 0xf4
+        return address[32:27] == 0b11100
 
     @staticmethod
     def access_pcr(address):
-        return address[32:24] >= 0xf4 and address[32:24] < 0xf8
+        return address[32:27] == 0b11101
 
     @staticmethod
     def access_debug(address):
-        return address[32:24] >= 0xf8
+        return address[32:28] == 0b1111
 
 
 @hdl.block
-def Algol(clk_i, rst_i, wbm_mem, wbm_io, xinterrupts_i, config):
+def Algol(clk_i, rst_i, wbm_mem_0, wbm_mem_1, wbm_io, xinterrupts_i, config):
     """Algol: Algol SoC"""
-    assert isinstance(wbm_mem, WishboneMaster), '[Algol] Error: wbm_mem port must be of type WishboneMaster'
+    assert isinstance(wbm_mem_0, WishboneMaster), '[Algol] Error: wbm_mem_0 port must be of type WishboneMaster'
+    assert isinstance(wbm_mem_1, WishboneMaster), '[Algol] Error: wbm_mem_1 port must be of type WishboneMaster'
     assert isinstance(wbm_io, WishboneMaster), '[Algol] Error: wbm_io port must be of type WishboneMaster'
     assert isinstance(config, Configuration), '[Algol] Error: config data must be of type Configuration'
 
-    enableRAM   = config.getOption('RAM', 'enable')
-    enableROM   = config.getOption('ROM', 'enable')
-    ramSize     = config.getOption('RAM', 'size')
-    romFile     = config.getOption('ROM', 'file')
-    nslaves     = 6
-    ramIdx      = 4  # TODO: this is not fixed
-    romIdx      = 5  # TODO: this is not fixed
+    nslaves     = 5  # ignore debug module for now.
     io_master   = WishboneMaster()
     io_slaves   = [WishboneMaster() for _ in range(nslaves)]
     wbs_plic    = WishboneSlave(io_slaves[AddressMap.plic_index])
     wbs_pcr     = WishboneSlave(io_slaves[AddressMap.pcr_index])
-    wbs_ram     = WishboneSlave(io_slaves[ramIdx])
-    wbs_rom     = WishboneSlave(io_slaves[romIdx])
     slave_addr  = [io_slaves[i].addr_o for i in range(nslaves)]
     slave_dat_o = [io_slaves[i].dat_o for i in range(nslaves)]
     slave_dat_i = [io_slaves[i].dat_i for i in range(nslaves)]
@@ -105,19 +91,16 @@ def Algol(clk_i, rst_i, wbm_mem, wbm_io, xinterrupts_i, config):
     core        = bPersei(clk_i=clk_i, rst_i=rst_i, wbm=io_master, xint_meip_i=xint_meip, xint_mtip_i=xint_mtip, xint_msip_i=xint_msip, hart_id=0, config=config)  # noqa
     plic        = PLIC(clk_i=clk_i, rst_i=rst_i, wbs_io=wbs_plic, eip_o=xint_meip, xinterrupts_i=xinterrupts_i, config=config)  # noqa
     pcr         = PCR(clk_i=clk_i, rst_i=rst_i, wbs_io=wbs_pcr, sip_o=xint_msip, tip_o=xint_mtip, config=config)  # noqa
-    ram_dev     = WB_RAM(clk_i, rst_i, wbs_ram, ramSize) if enableRAM else None  # noqa
-    rom_dev     = WB_ROM(clk_i, rst_i, wbs_rom, romFile) if enableROM else None  # noqa
 
     # --------------------------------------------------------------------------
     # bus
     @hdl.always_seq(clk_i.posedge, reset=rst_i)
     def request_access_proc():
-        requests.next[AddressMap.external_ram_index] = AddressMap.access_external_ram(io_master.addr_o)
-        requests.next[AddressMap.io_index]           = AddressMap.access_io(io_master.addr_o)
-        requests.next[AddressMap.plic_index]         = AddressMap.access_plic(io_master.addr_o)
-        requests.next[AddressMap.pcr_index]          = AddressMap.access_pcr(io_master.addr_o)
-        requests.next[ramIdx]                        = enableRAM and AddressMap.access_ram(io_master.addr_o)
-        requests.next[romIdx]                        = enableROM and AddressMap.access_rom(io_master.addr_o)
+        requests.next[AddressMap.ram_0_index] = AddressMap.access_ram_0(io_master.addr_o)
+        requests.next[AddressMap.io_index]    = AddressMap.access_io(io_master.addr_o)
+        requests.next[AddressMap.ram_1_index] = AddressMap.access_ram_1(io_master.addr_o)
+        requests.next[AddressMap.plic_index]  = AddressMap.access_plic(io_master.addr_o)
+        requests.next[AddressMap.pcr_index]   = AddressMap.access_pcr(io_master.addr_o)
 
     @hdl.always_seq(clk_i.posedge, reset=rst_i)
     def m2s_assign_proc():
@@ -134,16 +117,28 @@ def Algol(clk_i, rst_i, wbm_mem, wbm_io, xinterrupts_i, config):
                 io_master.err_i.next = slave_err[ii]
 
     @hdl.always_comb
-    def memory_port_assign_proc():
-        wbm_mem.addr_o.next                             = slave_addr[AddressMap.external_ram_index]
-        wbm_mem.dat_o.next                              = slave_dat_o[AddressMap.external_ram_index]
-        wbm_mem.sel_o.next                              = slave_sel[AddressMap.external_ram_index]
-        wbm_mem.cyc_o.next                              = slave_cyc[AddressMap.external_ram_index]
-        wbm_mem.stb_o.next                              = slave_stb[AddressMap.external_ram_index]
-        wbm_mem.we_o.next                               = slave_we[AddressMap.external_ram_index]
-        slave_dat_i[AddressMap.external_ram_index].next = wbm_mem.dat_i
-        slave_ack[AddressMap.external_ram_index].next   = wbm_mem.ack_i
-        slave_err[AddressMap.external_ram_index].next   = wbm_mem.err_i
+    def mem_0_port_assign_proc():
+        wbm_mem_0.addr_o.next                    = slave_addr[AddressMap.ram_0_index]
+        wbm_mem_0.dat_o.next                     = slave_dat_o[AddressMap.ram_0_index]
+        wbm_mem_0.sel_o.next                     = slave_sel[AddressMap.ram_0_index]
+        wbm_mem_0.cyc_o.next                     = slave_cyc[AddressMap.ram_0_index]
+        wbm_mem_0.stb_o.next                     = slave_stb[AddressMap.ram_0_index]
+        wbm_mem_0.we_o.next                      = slave_we[AddressMap.ram_0_index]
+        slave_dat_i[AddressMap.ram_0_index].next = wbm_mem_0.dat_i
+        slave_ack[AddressMap.ram_0_index].next   = wbm_mem_0.ack_i
+        slave_err[AddressMap.ram_0_index].next   = wbm_mem_0.err_i
+
+    @hdl.always_comb
+    def mem_1_port_assign_proc():
+        wbm_mem_1.addr_o.next                    = slave_addr[AddressMap.ram_1_index]
+        wbm_mem_1.dat_o.next                     = slave_dat_o[AddressMap.ram_1_index]
+        wbm_mem_1.sel_o.next                     = slave_sel[AddressMap.ram_1_index]
+        wbm_mem_1.cyc_o.next                     = slave_cyc[AddressMap.ram_1_index]
+        wbm_mem_1.stb_o.next                     = slave_stb[AddressMap.ram_1_index]
+        wbm_mem_1.we_o.next                      = slave_we[AddressMap.ram_1_index]
+        slave_dat_i[AddressMap.ram_1_index].next = wbm_mem_1.dat_i
+        slave_ack[AddressMap.ram_1_index].next   = wbm_mem_1.ack_i
+        slave_err[AddressMap.ram_1_index].next   = wbm_mem_1.err_i
 
     @hdl.always_comb
     def io_port_assign_proc():
@@ -173,11 +168,12 @@ if __name__ == '__main__':
     filename    = args.filename
     clk_i       = createSignal(0, 1)
     rst_i       = hdl.ResetSignal(0, active=True, async=False)
-    wbm_mem     = WishboneMaster()
+    wbm_mem_0   = WishboneMaster()
+    wbm_mem_1   = WishboneMaster()
     wbm_io      = WishboneMaster()
     xint        = createSignal(0, 31)
     config      = Configuration(config_file)
-    dut         = Algol(clk_i, rst_i, wbm_mem, wbm_io, xint, config)
+    dut         = Algol(clk_i, rst_i, wbm_mem_0, wbm_mem_1, wbm_io, xint, config)
     dut.convert(path=path, name=filename, trace=False, testbench=False)
 
 # Local Variables:
