@@ -80,7 +80,7 @@ def PCR(clk_i, rst_i, wbs_io, sip_o, tip_o, config):
 
     @hdl.always_comb
     def we_assign_proc():
-        _we.next = wbs_io.cyc_i and wbs_io.stb_i and wbs_io.we_i and wbs_io.stb_i == 0b1111
+        _we.next = wbs_io.cyc_i and wbs_io.stb_i and wbs_io.we_i and wbs_io.sel_i == 0b1111
 
     @hdl.always_comb
     def valid_access_proc():
