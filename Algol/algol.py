@@ -6,7 +6,7 @@ from atik.utils import createSignal
 from atik.system.interconnect import WishboneMaster
 from atik.system.interconnect import WishboneSlave
 from atik.utils import Configuration
-from Algol.bpersei import bPersei
+from Algol.core import Core
 from Algol.plic import PLIC
 from Algol.pcr import PCR
 
@@ -88,7 +88,7 @@ def Algol(clk_i, rst_i, wbm_mem_0, wbm_mem_1, wbm_io, xinterrupts_i, config):
     xint_msip   = createSignal(0, 1)
     xint_mtip   = createSignal(0, 1)
     # instances
-    core        = bPersei(clk_i=clk_i, rst_i=rst_i, wbm=io_master, xint_meip_i=xint_meip, xint_mtip_i=xint_mtip, xint_msip_i=xint_msip, hart_id=0, config=config)  # noqa
+    core        = Core(clk_i=clk_i, rst_i=rst_i, wbm=io_master, xint_meip_i=xint_meip, xint_mtip_i=xint_mtip, xint_msip_i=xint_msip, hart_id=0, config=config)  # noqa
     plic        = PLIC(clk_i=clk_i, rst_i=rst_i, wbs_io=wbs_plic, eip_o=xint_meip, xinterrupts_i=xinterrupts_i, config=config)  # noqa
     pcr         = PCR(clk_i=clk_i, rst_i=rst_i, wbs_io=wbs_pcr, sip_o=xint_msip, tip_o=xint_mtip, config=config)  # noqa
 

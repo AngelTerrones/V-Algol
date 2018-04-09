@@ -16,14 +16,22 @@
  * OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  */
 
-// File: bPersei_tb.cpp
-// Testbench for the bPersei (beta Persei) RISC-V CPU core.
+// File: algol_tb.cpp
+// Testbench for the Algol RISC-V CPU core.
 
 #include <verilated.h>
-#include "VbPersei.h"
+#include "VAlgol.h"
 #include "wbmemory.h"
 #include "testbench.h"
 #include "inputparser.h"
+
+#define ANSI_COLOR_RED     "\x1b[31m"
+#define ANSI_COLOR_GREEN   "\x1b[32m"
+#define ANSI_COLOR_YELLOW  "\x1b[33m"
+#define ANSI_COLOR_BLUE    "\x1b[34m"
+#define ANSI_COLOR_MAGENTA "\x1b[35m"
+#define ANSI_COLOR_CYAN    "\x1b[36m"
+#define ANSI_COLOR_RESET   "\x1b[0m"
 
 #define TOHOST 0x1000
 #define FROMHOST 0x1040
@@ -31,11 +39,11 @@
 
 // -----------------------------------------------------------------------------
 // The testbench
-class BPERSEITB: public Testbench<VbPersei> {
+class ALGOLTB: public Testbench<VAlgol> {
 public:
         // -----------------------------------------------------------------------------
         // Testbench constructor
-        BPERSEITB(double frequency, double timescale=1e-9): Testbench(frequency, timescale) {}
+        ALGOLTB(double frequency, double timescale=1e-9): Testbench(frequency, timescale) {}
 
         // -----------------------------------------------------------------------------
         // For benchmarks, prints data from syscall 64.
@@ -62,23 +70,20 @@ public:
                 memory.Load(progfile);
 
                 // initial values for unused ports
-                m_core->xint_meip_i = 0;
-                m_core->xint_mtip_i = 0;
-                m_core->xint_msip_i = 0;
+                m_core->xinterrupts_i = 0;
 
                 bool ok = false;
-                printf("\nExecuting file: %s\n", progfile.c_str());
-                printf("--------------------------------------------------------------------------------\n");
+                printf(ANSI_COLOR_YELLOW "Executing file: %s\n\n" ANSI_COLOR_RESET, progfile.c_str());
                 for (; getTime() < max_time;) {
                         Tick();
-                        memory(m_core->wbm_addr_o, m_core->wbm_dat_o, m_core->wbm_sel_o, m_core->wbm_cyc_o, m_core->wbm_stb_o,
-                               m_core->wbm_we_o, m_core->wbm_dat_i, m_core->wbm_ack_i, m_core->wbm_err_i);
+                        memory(m_core->wbm_mem_0_addr_o, m_core->wbm_mem_0_dat_o, m_core->wbm_mem_0_sel_o, m_core->wbm_mem_0_cyc_o, m_core->wbm_mem_0_stb_o,
+                               m_core->wbm_mem_0_we_o, m_core->wbm_mem_0_dat_i, m_core->wbm_mem_0_ack_i, m_core->wbm_mem_0_err_i);
 
                         // check for TOHOST
-                        if (m_core->wbm_addr_o == TOHOST and m_core->wbm_cyc_o and m_core->wbm_stb_o and m_core->wbm_we_o and m_core->wbm_ack_i) {
-                                if (m_core->wbm_dat_o != 1) {
+                        if (m_core->wbm_mem_0_addr_o == TOHOST and m_core->wbm_mem_0_cyc_o and m_core->wbm_mem_0_stb_o and m_core->wbm_mem_0_we_o and m_core->wbm_mem_0_ack_i) {
+                                if (m_core->wbm_mem_0_dat_o != 1) {
                                         // check for syscalls (used by benchmarks)
-                                        const uint32_t data0 = m_core->wbm_dat_o >> 2; // byte2word
+                                        const uint32_t data0 = m_core->wbm_mem_0_dat_o >> 2; // byte2word
                                         const uint32_t data1 = data0 + 2;              // data is 64-bit aligned.
                                         if (memory[data0] == SYSCALL and memory[data1] == 1) {
                                                 memory[FROMHOST >> 2] = 1;
@@ -97,13 +102,13 @@ public:
                 uint32_t time = getTime();
                 uint32_t exit_code = 0;
                 if (ok) {
-                        printf("Simulation done. Time %u\n", time);
+                        printf(ANSI_COLOR_GREEN "\nSimulation done. Time %u\n" ANSI_COLOR_RESET, time);
                         exit_code = 0;
                 } else if (time < max_time) {
-                        printf("Simulation error. Exit code: %08X. Time: %u\n", m_core->wbm_dat_o, time);
+                        printf(ANSI_COLOR_RED "\nSimulation error. Exit code: %08X. Time: %u\n" ANSI_COLOR_RESET, m_core->wbm_mem_0_dat_o, time);
                         exit_code = 1;
                 } else {
-                        printf("Simulation error. Timeout. Time: %u\n", time);
+                        printf(ANSI_COLOR_MAGENTA "\nSimulation error. Timeout. Time: %u\n" ANSI_COLOR_RESET, time);
                         exit_code = 2;
                 }
                 return exit_code;
@@ -113,9 +118,9 @@ public:
 // -----------------------------------------------------------------------------
 // Basic help
 void PrintHelp() {
-        printf("bPersei Verilator model.\n");
+        printf("Algol Verilator model.\n");
         printf("Usage:\n");
-        printf("\tbPersei.exe --frequency <core frequency> --timeout <max simulation time> --file <filename> [--trace] [--trace-directory <trace directory>]\n");
+        printf("\tAlgol.exe --frequency <core frequency> --timeout <max simulation time> --file <filename> [--trace] [--trace-directory <trace directory>]\n");
 }
 
 // -----------------------------------------------------------------------------
@@ -135,12 +140,12 @@ int main(int argc, char **argv) {
         }
         const double frequency = std::stod(s_frequency);
         const uint32_t timeout = std::stoul(s_timeout);
-        std::unique_ptr<BPERSEITB> tb(new BPERSEITB(frequency));
+        std::unique_ptr<ALGOLTB> tb(new ALGOLTB(frequency));
         if (trace) {
                 std::string bf = s_progfile.substr(s_progfile.find_last_of("/\\") + 1);
                 std::string::size_type const p(bf.find_last_of('.'));
                 std::string binfile = bf.substr(0, p);
-                std::string vcdfile = (s_trace_dir.empty() ? "." : s_trace_dir) + "/algol_" + binfile + ".vcd";
+                std::string vcdfile = (s_trace_dir.empty() ? "." : s_trace_dir) + "/Algol_" + binfile + ".vcd";
                 tb->OpenTrace(vcdfile.data());
         }
         tb->Reset();

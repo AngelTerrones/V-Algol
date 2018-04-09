@@ -19,28 +19,28 @@
 `default_nettype none
 `timescale 1 ns / 1 ps
 
-module bPersei #(
-                 parameter [31:0] HART_ID = 0,
-                 parameter [31:0] RESET_ADDR = 32'h0000_0000,
-                 parameter [0:0]  ENABLE_COUNTERS = 1
-                 )(
-                   input wire        clk_i,
-                   input wire        rst_i,
-                   // wishbone instruction and data port
-                   output reg [31:0] wbm_addr_o,
-                   output reg [31:0] wbm_dat_o,
-                   output reg [ 3:0] wbm_sel_o,
-                   output reg        wbm_cyc_o,
-                   output reg        wbm_stb_o,
-                   output reg        wbm_we_o,
-                   input wire [31:0] wbm_dat_i,
-                   input wire        wbm_ack_i,
-                   input wire        wbm_err_i,
-                   // external interrupts interface
-                   input wire        xint_meip_i,
-                   input wire        xint_mtip_i,
-                   input wire        xint_msip_i
-                   );
+module core #(
+              parameter [31:0] HART_ID = 0,
+              parameter [31:0] RESET_ADDR = 32'h0000_0000,
+              parameter [0:0]  ENABLE_COUNTERS = 1
+              )(
+                input wire        clk_i,
+                input wire        rst_i,
+                // wishbone instruction and data port
+                output reg [31:0] wbm_addr_o,
+                output reg [31:0] wbm_dat_o,
+                output reg [ 3:0] wbm_sel_o,
+                output reg        wbm_cyc_o,
+                output reg        wbm_stb_o,
+                output reg        wbm_we_o,
+                input wire [31:0] wbm_dat_i,
+                input wire        wbm_ack_i,
+                input wire        wbm_err_i,
+                // external interrupts interface
+                input wire        xint_meip_i,
+                input wire        xint_mtip_i,
+                input wire        xint_msip_i
+                );
     // BEGIN MYHDL TEMPLATE
     // ---------------------------------------------------------------------
     // State machine
