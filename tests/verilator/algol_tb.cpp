@@ -24,14 +24,7 @@
 #include "wbmemory.h"
 #include "testbench.h"
 #include "inputparser.h"
-
-#define ANSI_COLOR_RED     "\x1b[31m"
-#define ANSI_COLOR_GREEN   "\x1b[32m"
-#define ANSI_COLOR_YELLOW  "\x1b[33m"
-#define ANSI_COLOR_BLUE    "\x1b[34m"
-#define ANSI_COLOR_MAGENTA "\x1b[35m"
-#define ANSI_COLOR_CYAN    "\x1b[36m"
-#define ANSI_COLOR_RESET   "\x1b[0m"
+#include "colors.h"
 
 #define TOHOST 0x1000
 #define FROMHOST 0x1040
@@ -99,7 +92,7 @@ public:
                         }
                 }
                 Tick();
-                uint32_t time = getTime();
+                uint32_t time      = getTime();
                 uint32_t exit_code = 0;
                 if (ok) {
                         printf(ANSI_COLOR_GREEN "\nSimulation done. Time %u\n" ANSI_COLOR_RESET, time);

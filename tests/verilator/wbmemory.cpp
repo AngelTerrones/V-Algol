@@ -29,6 +29,11 @@
 // Constructor.
 WBMEMORY::WBMEMORY(const uint32_t base_addr, const uint32_t nwords, const uint32_t delay) {
         uint32_t next;
+        // check if the base_addr is a power of 2
+        if (base_addr & (base_addr - 1)) {
+                printf("[WBMEMORY]"" Error: base address %#08x must be a power of 2\n", base_addr);
+                exit(EXIT_FAILURE);
+        }
         // get the address mask, and memory size (power of 2)
         for (next = 1; next < nwords; next <<= 1);
         m_size      = next;
@@ -77,12 +82,18 @@ void WBMEMORY::Load(const std::string &filename) {
 void WBMEMORY::operator()(const uint32_t wbs_addr_i, const uint32_t wbs_dat_i, const uint8_t wbs_sel_i,
                           const uint8_t wbs_cyc_i, const uint8_t wbs_stb_i, const uint8_t wbs_we_i,
                           uint32_t &wbs_data_o, uint8_t &wbs_ack_o, uint8_t &wbs_err_o) {
+        auto addr     = (wbs_addr_i >> 2) & m_mask; // Byte address to word address.
+        auto mem_size = m_size << 2;
+
+        // check if the address is out of range.
+        if (wbs_addr_i < m_base_addr || wbs_addr_i >= m_base_addr + mem_size) {
+                printf("[WBMEMORY] Invalid access: %#08x\n", wbs_addr_i);
+                exit(EXIT_FAILURE);
+        }
         // assume this is called every clock cycle
         wbs_data_o = 0xdeadf00d;
         wbs_ack_o  = 0;
         wbs_err_o  = 0;
-
-        auto addr = (wbs_addr_i >> 2) & m_mask; // Byte address to word address.
 
         if (wbs_cyc_i and wbs_stb_i) {
                 if (m_delay_cnt++ == m_delay) {
