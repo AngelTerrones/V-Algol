@@ -25,12 +25,12 @@ SECTIONS
   . = 0x00000000;
   .text.init : { *(.text.init) }
 
-  . = ALIGN(0x1000);
-  .tohost : { *(.tohost) }
 
+  . = 0x00001044;
   .text : { *(.text) }
 
   /* data segment */
+
   .data : { *(.data) }
 
   .sdata : {
