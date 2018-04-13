@@ -2,6 +2,10 @@
 
 #ifndef _ENV_PHYSICAL_SINGLE_CORE_H
 #define _ENV_PHYSICAL_SINGLE_CORE_H
+#define tohost 0x1018
+#define fromhost 0x1040
+
+
 
 #include "../encoding.h"
 
@@ -138,7 +142,8 @@ handle_exception:                                                       \
         /* some unhandlable exception occurred */                       \
   1:    ori TESTNUM, TESTNUM, 1337;                                     \
   write_tohost:                                                         \
-        sw TESTNUM, tohost, t5;                                         \
+        li t5, tohost;                                                 \
+        sw TESTNUM, 0(t5);                                         \
         j write_tohost;                                                 \
 reset_vector:                                                           \
         RISCV_MULTICORE_DISABLE;                                        \
@@ -202,13 +207,9 @@ reset_vector:                                                           \
 
 #define EXTRA_DATA
 
-#define RVTEST_DATA_BEGIN                                               \
-        EXTRA_DATA                                                      \
-        .pushsection .tohost,"aw",@progbits;                            \
-        .align 6; .global tohost; tohost: .dword 0;                     \
-        .align 6; .global fromhost; fromhost: .dword 0;                 \
-        .popsection;                                                    \
-        .align 4; .global begin_signature; begin_signature:
+#define RVTEST_DATA_BEGIN  
+ 
+       
 
 #define RVTEST_DATA_END .align 4; .global end_signature; end_signature:
 
