@@ -21,7 +21,7 @@
 
 module bPersei #(
                  parameter [31:0] HART_ID = 0,
-                 parameter [31:0] RESET_ADDR = 32'h0000_0000,
+                 parameter [31:0] RESET_ADDR = 32'h6000_0000,
                  parameter [0:0]  ENABLE_COUNTERS = 1
                  )(
                    input wire        clk_i,
@@ -787,12 +787,12 @@ module bPersei #(
     end
     // ---------------------------------------------------------------------
     // Machine mode: access to whole address space (4GB)
-    // User mode: access only to low 2GB (0x00000000 -> 0x7FFFFFFF)
+    // User mode: access only to low 1.488GB (0x00000000 -> 0x5FFFFFFF)
     always @(*) begin
         (* parallel_case *)
         case (cpu_state)
             cpu_state_fetch: begin
-                illegal_mem  = priv_mode == PRIV_U && pc[31];
+                illegal_mem  = priv_mode == PRIV_U && pc[31:28]> 4'd5;
                 wbm_addr_o   = pc;
                 wbm_dat_o    = 32'bx;
                 wbm_sel_o    = 4'b0;
@@ -801,7 +801,7 @@ module bPersei #(
                 wbm_stb_o    = pc[1:0] == 0 && !illegal_mem;
             end
             cpu_state_ld: begin
-                illegal_mem  = priv_mode == PRIV_U && ld_addr[31];
+                illegal_mem  = priv_mode == PRIV_U && ld_addr[31:28]> 4'd5;
                 wbm_addr_o   = ld_addr;
                 wbm_dat_o    = 32'bx;
                 wbm_sel_o    = 4'b0;
@@ -810,7 +810,7 @@ module bPersei #(
                 wbm_stb_o    = !illegal_mem;
             end
             cpu_state_st: begin
-                illegal_mem  = priv_mode == PRIV_U && st_addr[31];
+                illegal_mem  = priv_mode == PRIV_U && st_addr[31:28]> 4'd5;
                 wbm_addr_o   = st_addr;
                 wbm_dat_o    = mdat_o;
                 wbm_sel_o    = msel_o;
