@@ -12,8 +12,9 @@
 
 #undef strcmp
 
-extern volatile uint64_t tohost;
-extern volatile uint64_t fromhost;
+
+uint32_t * tohost = (uint32_t *) 0x1018;  //Se define la direccion a tohost
+uint32_t * fromhost = (uint32_t *)0x1040;  //Se define la direccion a fromhost
 
 static uintptr_t syscall(uintptr_t which, uint64_t arg0, uint64_t arg1, uint64_t arg2)
 {
@@ -24,10 +25,10 @@ static uintptr_t syscall(uintptr_t which, uint64_t arg0, uint64_t arg1, uint64_t
   magic_mem[3] = arg2;
   __sync_synchronize();
 
-  tohost = (uintptr_t)magic_mem;
-  while (fromhost == 0)
+  *tohost = (uintptr_t)magic_mem;
+  while (*fromhost == 0)
     ;
-  fromhost = 0;
+  *fromhost = 0;
 
   __sync_synchronize();
   return magic_mem[0];
@@ -55,7 +56,7 @@ void setStats(int enable)
 
 void __attribute__((noreturn)) tohost_exit(uintptr_t code)
 {
-  tohost = (code << 1) | 1;
+  *tohost =  (code << 1) | 1;
   while (1);
 }
 
