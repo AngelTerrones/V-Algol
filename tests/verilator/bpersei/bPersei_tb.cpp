@@ -47,11 +47,12 @@ public:
                         const uint32_t addr        = data_addr + ii;
                         const uint32_t data        = memory[addr >> 2];
                         const uint32_t addr_masked = addr & 0xfffffffc;
-                        if (addr_masked < data_addr + size) printf("%c", data & 0xff);
-                        if (addr_masked + 1 < data_addr + size) printf("%c", (data >> 8) & 0xff);
-                        if (addr_masked + 2 < data_addr + size) printf("%c", (data >> 16) & 0xff);
-                        if (addr_masked + 3 < data_addr + size) printf("%c", (data >> 24) & 0xff);
+                        if (addr_masked <= data_addr + size) printf("%c", data & 0xff);
+                        if (addr_masked + 1 <= data_addr + size) printf("%c", (data >> 8) & 0xff);
+                        if (addr_masked + 2 <= data_addr + size) printf("%c", (data >> 16) & 0xff);
+                        if (addr_masked + 3 <= data_addr + size) printf("%c", (data >> 24) & 0xff);
                 }
+                printf("\n");
         }
 
         // -----------------------------------------------------------------------------

@@ -24,8 +24,10 @@
 #include "wbmemory.h"
 #include "testbench.h"
 #include "inputparser.h"
+#include "peripherals/exit.h"
+#include "peripherals/exit.cpp"
 
-#define TOHOST 0x1000
+#define TOHOST 0x1018
 #define FROMHOST 0x1040
 #define SYSCALL 64
 
@@ -43,7 +45,7 @@ public:
                 const uint32_t data_addr = memory[base_addr + 4];
                 const uint32_t size      = memory[base_addr + 6];
                 for (uint32_t ii = 0; ii < size; ii += 4) {
-                        // the data_addr must be 32-bit aligned, so no need to check the lower boundary.
+                        // the data_addr must be 32-bit aligned, so no need to check the lower boundary.j
                         const uint32_t addr        = data_addr + ii;
                         const uint32_t data        = memory[addr >> 2];
                         const uint32_t addr_masked = addr & 0xfffffffc;
@@ -61,43 +63,64 @@ public:
                 WBMEMORY &memory = *memory_ptr;
                 memory.Load(progfile);
 
+                //Peripheral to end sim
+                EXIT looktohost(1);
+                bool end = looktohost.check();
+                bool errors=false;
+
                 // initial values for unused ports
                 m_core->xinterrupts_i = 0;
 
-                bool ok = false;
+                
                 printf("\nExecuting file: %s\n", progfile.c_str());
                 printf("--------------------------------------------------------------------------------\n");
-                for (; getTime() < max_time;) {
+                for (; getTime() < max_time and end==false and errors==false;) {
                         Tick();
-                        memory(m_core->wbm_mem_addr_o, m_core->wbm_mem_dat_o, m_core->wbm_mem_sel_o, m_core->wbm_mem_cyc_o, m_core->wbm_mem_stb_o,
-                               m_core->wbm_mem_we_o, m_core->wbm_mem_dat_i, m_core->wbm_mem_ack_i, m_core->wbm_mem_err_i);
 
-                        // check for TOHOST
-                        if (m_core->wbm_mem_addr_o == TOHOST and m_core->wbm_mem_cyc_o and m_core->wbm_mem_stb_o and m_core->wbm_mem_we_o and m_core->wbm_mem_ack_i) {
-                                if (m_core->wbm_mem_dat_o != 1) {
-                                        // check for syscalls (used by benchmarks)
-                                        const uint32_t data0 = m_core->wbm_mem_dat_o >> 2; // byte2word
-                                        const uint32_t data1 = data0 + 2;              // data is 64-bit aligned.
-                                        if (memory[data0] == SYSCALL and memory[data1] == 1) {
-                                                memory[FROMHOST >> 2] = 1;
-                                                SyscallPrint(memory, data0);
-                                        } else {
-                                                // exit code != 0.
-                                                break;
-                                        }
-                                } else {
-                                        ok = true;
-                                        break;
+
+                        uint32_t address=m_core->wbm_mem_addr_o;
+
+                        //Bus 
+                        switch(address){
+
+                            case TOHOST : 
+
+                                looktohost.sim(m_core->wbm_mem_addr_o, m_core->wbm_mem_dat_o, m_core->wbm_mem_sel_o, m_core->wbm_mem_cyc_o, m_core->wbm_mem_stb_o,
+                                   m_core->wbm_mem_we_o, m_core->wbm_mem_dat_i, m_core->wbm_mem_ack_i, m_core->wbm_mem_err_i);
+                                end=looktohost.check(); 
+
+                                if(end==false){  //Possible syscall
+
+                                  const uint32_t data0 = m_core->wbm_mem_dat_o >> 2; // byte2word
+                                  const uint32_t data1 = data0 + 2;              // data is 64-bit aligned.
+                                  if (memory[data0] == SYSCALL and memory[data1] == 1) {
+                                        memory[FROMHOST >> 2] = 1;
+                                        SyscallPrint(memory, data0);
+                                    }
+
+                                   else
+                                    errors=true; //end sim with errors.
                                 }
-                        }
+
+                            break;            
+
+                             default:
+                               memory(m_core->wbm_mem_addr_o, m_core->wbm_mem_dat_o, m_core->wbm_mem_sel_o, m_core->wbm_mem_cyc_o, m_core->wbm_mem_stb_o,
+                               m_core->wbm_mem_we_o, m_core->wbm_mem_dat_i, m_core->wbm_mem_ack_i, m_core->wbm_mem_err_i);
+                               break;
+
+                        } 
+                       
+                        
                 }
                 Tick();
                 uint32_t time = getTime();
                 uint32_t exit_code = 0;
-                if (ok) {
+                if (end==true) {
                         printf("Simulation done. Time %u\n", time);
                         exit_code = 0;
-                } else if (time < max_time) {
+                } 
+                else if (time < max_time) {
                         printf("Simulation error. Exit code: %08X. Time: %u\n", m_core->wbm_mem_dat_o, time);
                         exit_code = 1;
                 } else {
