@@ -11,7 +11,8 @@ include tests/verilator/pprint.mk
 
 # C++ build
 CXX := g++
-CFLAGS := -std=c++17 -Wall -O3 -faligned-new #-Wno-sign-compare # -DDEBUG -g
+CFLAGS := -std=c++17 -Wall -O3 #-Wno-sign-compare # -DDEBUG -g
+CFLAGS_NEW := -faligned-new
 VERILATOR_ROOT ?= $(shell bash -c 'verilator -V|grep VERILATOR_ROOT | head -1 | sed -e " s/^.*=\s*//"')
 VROOT := $(VERILATOR_ROOT)
 VINCD := $(VROOT)/include
@@ -21,6 +22,12 @@ ifeq ($(OS),Windows_NT)
 	INCS := $(VINC) -Itests/verilator -I /mingw$(shell getconf LONG_BIT)/include/libelf
 else
 	INCS := $(VINC) -Itests/verilator
+endif
+
+GCC7 = $(shell expr `gcc -dumpversion | cut -f1 -d.` = 7 )
+
+ifeq ($(GCC7), 1)
+	CFLAGS += CFGLAGS_NEW
 endif
 
 VOBJS := $(.VOBJ)/verilated.o $(.VOBJ)/verilated_vcd_c.o
