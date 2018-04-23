@@ -27,7 +27,7 @@ endif
 GCC7 = $(shell expr `gcc -dumpversion | cut -f1 -d.` = 7 )
 
 ifeq ($(GCC7), 1)
-	CFLAGS += CFLAGS_NEW
+	CFLAGS += $(CFLAGS_NEW)
 endif
 
 VOBJS := $(.VOBJ)/verilated.o $(.VOBJ)/verilated_vcd_c.o
