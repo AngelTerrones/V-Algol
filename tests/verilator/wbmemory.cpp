@@ -24,6 +24,7 @@
 #include <cstring>
 #include "aelf.h"
 #include "wbmemory.h"
+#include "colors.h"
 
 // -----------------------------------------------------------------------------
 // Constructor.
@@ -63,7 +64,8 @@ void WBMEMORY::Load(const std::string &filename) {
         uint32_t     mem_size = m_size * sizeof(uint32_t);
 
         if (not isELF(fn)) {
-                fprintf(stderr, "[WBMEMORY] Invalid elf: %s\n", filename.c_str());
+                fprintf(stderr, ANSI_COLOR_RED "[WBMEMORY] Invalid elf: %s\n" ANSI_COLOR_RESET, filename.c_str());
+                perror("[OS]");
                 exit(EXIT_FAILURE);
         }
 

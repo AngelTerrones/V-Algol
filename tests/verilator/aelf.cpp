@@ -56,12 +56,14 @@ void elfread(const char *filename, uint32_t &entry, ELFSECTION **&sections) {
         // Initialize library
         if (elf_version(EV_CURRENT) == EV_NONE) {
                 fprintf(stderr, "[ELFLOADER] ELF library initialization failed: %s\n", elf_errmsg(-1));
+                perror("[OS]");
                 exit(EXIT_FAILURE);
         }
         // open filename
         int fd = open(filename, O_RDONLY | O_BINARY, 0);
         if (fd < 0) {
                 fprintf(stderr, "[ELFLOADER] Unable to open file: %s\n", filename);
+                perror("[OS]");
                 exit(EXIT_FAILURE);
         }
         Elf *elf = elf_begin(fd, ELF_C_READ, nullptr);
@@ -186,6 +188,7 @@ void elfread(const char *filename, uint32_t &entry, ELFSECTION **&sections) {
                 // read/copy section
                 if (lseek(fd, phdr.p_offset, SEEK_SET) < 0) {
                         fprintf(stderr, "[ELFLOADER] Unable to seek file position 0x%08jx\n", (uintmax_t)phdr.p_offset);
+                        perror("[OS]");
                         exit(EXIT_FAILURE);
                 }
                 if (phdr.p_filesz > phdr.p_memsz) {
@@ -194,6 +197,7 @@ void elfread(const char *filename, uint32_t &entry, ELFSECTION **&sections) {
                 }
                 if (read(fd, sections[i]->m_data, phdr.p_filesz) != (int)phdr.p_filesz) {
                         fprintf(stderr, "[ELFLOADER] Unable to read the entire section.\n");
+                        perror("[OS]");
                         exit(EXIT_FAILURE);
                 }
                 current_offset += phdr.p_memsz + sizeof(ELFSECTION);
