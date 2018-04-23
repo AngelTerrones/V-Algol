@@ -12,13 +12,13 @@ from atik.utils import Configuration
 
 class PCRAddressMap:
     # maximum size: 64 MB
-    ADDR_MASK  = 0x0000_00FF
-    BASE_SIP   = 0x0000_0000  # 1 register
-    BASE_TCMPL = 0x0000_0010  # 1 register
-    BASE_TCMPH = 0x0000_0014  # 1 register
-    BASE_TIMEL = 0x0000_0020  # 1 register
-    BASE_TIMEH = 0x0000_0024  # 1 register
-    LAST_ADDR  = 0x0000_00FF
+    ADDR_MASK  = 0x000000FF
+    BASE_SIP   = 0x00000000  # 1 register
+    BASE_TCMPL = 0x00000010  # 1 register
+    BASE_TCMPH = 0x00000014  # 1 register
+    BASE_TIMEL = 0x00000020  # 1 register
+    BASE_TIMEH = 0x00000024  # 1 register
+    LAST_ADDR  = 0x000000FF
 
 
 @hdl.block

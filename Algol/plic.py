@@ -11,11 +11,11 @@ from atik.utils import Configuration
 
 class PLICAddressMap:
     # maximum size: 64 MB
-    ADDR_MASK    = 0x0000_0FFF
-    BASE_PENDING = 0x0000_0000  # 1 register
-    BASE_ENABLE  = 0x0000_0004  # 1 register
-    BASE_CLAIM   = 0x0000_0008  # 1 register
-    LAST_ADDR    = 0x0000_0FFF
+    ADDR_MASK    = 0x00000FFF
+    BASE_PENDING = 0x00000000  # 1 register
+    BASE_ENABLE  = 0x00000004  # 1 register
+    BASE_CLAIM   = 0x00000008  # 1 register
+    LAST_ADDR    = 0x00000FFF
 
 
 @hdl.block
