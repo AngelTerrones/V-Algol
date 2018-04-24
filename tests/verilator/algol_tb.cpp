@@ -39,8 +39,47 @@ public:
         ALGOLTB(double frequency, double timescale=1e-9): Testbench(frequency, timescale) {}
 
         // -----------------------------------------------------------------------------
+        // Print exit message
+        uint32_t PrintExitMessage(const bool ok, const uint32_t time, const unsigned long max_time) const {
+                uint32_t exit_code;
+                if (ok) {
+                        printf(ANSI_COLOR_GREEN "Simulation done. Time %u\n" ANSI_COLOR_RESET, time);
+                        exit_code = 0;
+                } else if (time < max_time) {
+                        printf(ANSI_COLOR_RED "Simulation error. Exit code: %08X. Time: %u\n" ANSI_COLOR_RESET, m_core->wbm_mem_0_dat_o, time);
+                        exit_code = 1;
+                } else {
+                        printf(ANSI_COLOR_MAGENTA "Simulation error. Timeout. Time: %u\n" ANSI_COLOR_RESET, time);
+                        exit_code = 2;
+                }
+                return exit_code;
+        }
+
+        // -----------------------------------------------------------------------------
+        // check for syscall
+        bool CheckTOHOST(WBMEMORY &memory, bool &ok) const {
+                bool _exit = false;
+                if (m_core->wbm_mem_0_addr_o == TOHOST and m_core->wbm_mem_0_cyc_o and m_core->wbm_mem_0_stb_o and m_core->wbm_mem_0_we_o and m_core->wbm_mem_0_ack_i) {
+                        if (m_core->wbm_mem_0_dat_o != 1) {
+                                // check for syscalls (used by benchmarks)
+                                const uint32_t data0 = m_core->wbm_mem_0_dat_o >> 2; // byte2word
+                                const uint32_t data1 = data0 + 2;                    // data is 64-bit aligned.
+                                if (memory[data0] == SYSCALL and memory[data1] == 1) {
+                                        memory[FROMHOST >> 2] = 1;
+                                        SyscallPrint(memory, data0);
+                                } else {
+                                        _exit = true;
+                                }
+                        } else {
+                                ok    = true;
+                                _exit = true;
+                        }
+                }
+                return _exit;
+        }
+        // -----------------------------------------------------------------------------
         // For benchmarks, prints data from syscall 64.
-        void SyscallPrint(WBMEMORY &memory, const uint32_t base_addr) {
+        void SyscallPrint(WBMEMORY &memory, const uint32_t base_addr) const {
                 const uint32_t data_addr = memory[base_addr + 4];
                 const uint32_t size      = memory[base_addr + 6];
                 for (uint32_t ii = 0; ii < size; ii += 4) {
@@ -57,7 +96,7 @@ public:
 
         // -----------------------------------------------------------------------------
         // Run the CPU model.
-        int SimulateCore(const std::string &progfile, unsigned long max_time=1000000L) {
+        int SimulateCore(const std::string &progfile, const unsigned long max_time=1000000L) {
                 std::unique_ptr<WBMEMORY> memory_ptr(new WBMEMORY(0x0, 0x20000));
                 WBMEMORY &memory = *memory_ptr;
                 memory.Load(progfile);
@@ -66,45 +105,17 @@ public:
                 m_core->xinterrupts_i = 0;
 
                 bool ok = false;
-                printf(ANSI_COLOR_YELLOW "Executing file: %s\n\n" ANSI_COLOR_RESET, progfile.c_str());
+                printf(ANSI_COLOR_YELLOW "Executing file: %s\n" ANSI_COLOR_RESET, progfile.c_str());
                 for (; getTime() < max_time;) {
                         Tick();
                         memory(m_core->wbm_mem_0_addr_o, m_core->wbm_mem_0_dat_o, m_core->wbm_mem_0_sel_o, m_core->wbm_mem_0_cyc_o, m_core->wbm_mem_0_stb_o,
                                m_core->wbm_mem_0_we_o, m_core->wbm_mem_0_dat_i, m_core->wbm_mem_0_ack_i, m_core->wbm_mem_0_err_i);
 
-                        // check for TOHOST
-                        if (m_core->wbm_mem_0_addr_o == TOHOST and m_core->wbm_mem_0_cyc_o and m_core->wbm_mem_0_stb_o and m_core->wbm_mem_0_we_o and m_core->wbm_mem_0_ack_i) {
-                                if (m_core->wbm_mem_0_dat_o != 1) {
-                                        // check for syscalls (used by benchmarks)
-                                        const uint32_t data0 = m_core->wbm_mem_0_dat_o >> 2; // byte2word
-                                        const uint32_t data1 = data0 + 2;              // data is 64-bit aligned.
-                                        if (memory[data0] == SYSCALL and memory[data1] == 1) {
-                                                memory[FROMHOST >> 2] = 1;
-                                                SyscallPrint(memory, data0);
-                                        } else {
-                                                // exit code != 0.
-                                                break;
-                                        }
-                                } else {
-                                        ok = true;
-                                        break;
-                                }
-                        }
+                        if (CheckTOHOST(memory, ok))
+                                break;
                 }
                 Tick();
-                uint32_t time      = getTime();
-                uint32_t exit_code = 0;
-                if (ok) {
-                        printf(ANSI_COLOR_GREEN "\nSimulation done. Time %u\n" ANSI_COLOR_RESET, time);
-                        exit_code = 0;
-                } else if (time < max_time) {
-                        printf(ANSI_COLOR_RED "\nSimulation error. Exit code: %08X. Time: %u\n" ANSI_COLOR_RESET, m_core->wbm_mem_0_dat_o, time);
-                        exit_code = 1;
-                } else {
-                        printf(ANSI_COLOR_MAGENTA "\nSimulation error. Timeout. Time: %u\n" ANSI_COLOR_RESET, time);
-                        exit_code = 2;
-                }
-                return exit_code;
+                return PrintExitMessage(ok, getTime(), max_time);
          }
 };
 
