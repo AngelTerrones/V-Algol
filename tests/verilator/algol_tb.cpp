@@ -97,7 +97,7 @@ public:
         // -----------------------------------------------------------------------------
         // Run the CPU model.
         int SimulateCore(const std::string &progfile, const unsigned long max_time=1000000L) {
-                std::unique_ptr<WBMEMORY> memory_ptr(new WBMEMORY(0x0, 0x20000));
+                const std::unique_ptr<WBMEMORY> memory_ptr(new WBMEMORY(0x0, 0x20000));
                 WBMEMORY &memory = *memory_ptr;
                 memory.Load(progfile);
 

@@ -32,7 +32,7 @@ WBMEMORY::WBMEMORY(const uint32_t base_addr, const uint32_t nwords, const uint32
         uint32_t next;
         // check if the base_addr is a power of 2
         if (base_addr & (base_addr - 1)) {
-                printf("[WBMEMORY]"" Error: base address %#08x must be a power of 2\n", base_addr);
+                printf("[WBMEMORY]"" Error: base address 0x%08x must be a power of 2\n", base_addr);
                 exit(EXIT_FAILURE);
         }
         // get the address mask, and memory size (power of 2)
@@ -70,9 +70,13 @@ void WBMEMORY::Load(const std::string &filename) {
 
         elfread(fn, entry, section);
         for (int s = 0; section[s] != nullptr; s++) {
-                if (section[s]->m_start >= m_base_addr && section[s]->m_start + section[s]->m_len <= m_base_addr + mem_size) {
+                auto start = section[s]->m_start;
+                auto end   = section[s]->m_start + section[s]->m_len;
+                if (start >= m_base_addr && end <= m_base_addr + mem_size) {
                         uint32_t offset = section[s]->m_start - m_base_addr;
                         std::memcpy(mem_ptr + offset, section[s]->m_data, section[s]->m_len);
+                } else {
+                        fprintf(stderr, ANSI_COLOR_MAGENTA "[WBMEMORY] WARNING: unable to fit section %d. Start: 0x%08x, End: 0x%08x\n" ANSI_COLOR_RESET, s, start, end);
                 }
         }
         delete[] section;
@@ -88,7 +92,7 @@ void WBMEMORY::operator()(const uint32_t wbs_addr_i, const uint32_t wbs_dat_i, c
 
         // check if the address is out of range.
         if (wbs_addr_i < m_base_addr || wbs_addr_i >= m_base_addr + mem_size) {
-                printf("[WBMEMORY] Invalid access: %#08x\n", wbs_addr_i);
+                printf(ANSI_COLOR_RED "[WBMEMORY] Invalid access: 0x%08x\n" ANSI_COLOR_RESET, wbs_addr_i);
                 exit(EXIT_FAILURE);
         }
         // assume this is called every clock cycle
