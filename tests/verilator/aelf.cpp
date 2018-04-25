@@ -40,7 +40,10 @@ bool isELF(const char *filename) {
         FILE *fp;
         fp = fopen(filename, "rb");
 
-        if (fp == nullptr) return false;
+        if (fp == nullptr) {
+                perror("[OS]");
+                return false;
+        }
         if (fgetc(fp) != 0x7f) return false;
         if (fgetc(fp) != 'E') return false;
         if (fgetc(fp) != 'L') return false;
@@ -192,11 +195,11 @@ void elfread(const char *filename, uint32_t &entry, ELFSECTION **&sections) {
                         exit(EXIT_FAILURE);
                 }
                 if (phdr.p_filesz > phdr.p_memsz) {
-                        fprintf(stderr, "[ELFLOADER][WARNING] filesz > p_memsz\n");
+                        fprintf(stderr, "[ELFLOADER][WARNING] filesz > p_memsz. Ignoring section %zu.\n", i);
                         phdr.p_filesz = 0;
                 }
                 if (read(fd, sections[i]->m_data, phdr.p_filesz) != (int)phdr.p_filesz) {
-                        fprintf(stderr, "[ELFLOADER] Unable to read the entire section.\n");
+                        fprintf(stderr, "[ELFLOADER] Unable to read the entire section: %zu.\n", i);
                         perror("[OS]");
                         exit(EXIT_FAILURE);
                 }

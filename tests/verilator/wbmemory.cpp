@@ -65,7 +65,6 @@ void WBMEMORY::Load(const std::string &filename) {
 
         if (not isELF(fn)) {
                 fprintf(stderr, ANSI_COLOR_RED "[WBMEMORY] Invalid elf: %s\n" ANSI_COLOR_RESET, filename.c_str());
-                perror("[OS]");
                 exit(EXIT_FAILURE);
         }
 
