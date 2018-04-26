@@ -16,7 +16,7 @@
  * OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  */
 
-// File: memory.h
+// File: wbmemory.h
 // Wishbone memory device.
 // 32-bits address & data bus.
 
@@ -24,8 +24,8 @@
 #include <string>
 #include <cstdint>
 
-#ifndef __MEMORY_H
-#define __MEMORY_H
+#ifndef __WBMEMORY_H
+#define __WBMEMORY_H
 
 class WBMEMORY {
 public:
@@ -46,4 +46,4 @@ private:
         uint32_t               m_delay_cnt;
 };
 
-#endif // __MEMORY_H
+#endif // __WBMEMORY_H
