@@ -55,9 +55,6 @@ WBMEMORY::~WBMEMORY() {
 // -----------------------------------------------------------------------------
 // Load/initialize memory.
 void WBMEMORY::Load(const std::string &filename) {
-        // WARNING: this will silently ignore loads if the memory is not large enough to hold the data.
-        // TODO: print a warning maybe?
-        uint32_t     entry;
         ELFSECTION **section;
         const char  *fn       = filename.data();
         char        *mem_ptr  = reinterpret_cast<char *>(m_memory->data());
@@ -68,7 +65,7 @@ void WBMEMORY::Load(const std::string &filename) {
                 exit(EXIT_FAILURE);
         }
 
-        elfread(fn, entry, section);
+        elfread(fn, section);
         for (int s = 0; section[s] != nullptr; s++) {
                 auto start = section[s]->m_start;
                 auto end   = section[s]->m_start + section[s]->m_len;

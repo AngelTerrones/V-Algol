@@ -55,7 +55,7 @@ bool isELF(const char *filename) {
 
 // -----------------------------------------------------------------------------
 // load the ELF file into a custom data structure.
-void elfread(const char *filename, uint32_t &entry, ELFSECTION **&sections) {
+void elfread(const char *filename, ELFSECTION **&sections) {
         // Initialize library
         if (elf_version(EV_CURRENT) == EV_NONE) {
                 fprintf(stderr, "[ELFLOADER] ELF library initialization failed: %s\n", elf_errmsg(-1));
@@ -132,7 +132,6 @@ void elfread(const char *filename, uint32_t &entry, ELFSECTION **&sections) {
                 exit(EXIT_FAILURE);
         }
         // get executable header
-        entry = ehdr.e_entry; // get the entry point. Is this needed? :/
         size_t n;
         if (elf_getphdrnum(elf, &n) != 0) {
                 fprintf(stderr, "[ELFLOADER] elf_getphdrnum() failed: %s\n", elf_errmsg(-1));

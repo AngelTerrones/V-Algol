@@ -31,6 +31,6 @@ public:
 };
 
 bool isELF   (const char *filename);
-void elfread (const char *filename, uint32_t &entry, ELFSECTION **&sections);
+void elfread (const char *filename, ELFSECTION **&sections);
 
 #endif
