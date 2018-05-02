@@ -30,11 +30,6 @@
 // Constructor.
 WBMEMORY::WBMEMORY(const uint32_t base_addr, const uint32_t nwords, const uint32_t delay) {
         uint32_t next;
-        // check if the base_addr is a power of 2
-        if (base_addr & (base_addr - 1)) {
-                printf("[WBMEMORY]"" Error: base address 0x%08x must be a power of 2\n", base_addr);
-                exit(EXIT_FAILURE);
-        }
         // get the address mask, and memory size (power of 2)
         for (next = 1; next < nwords; next <<= 1);
         m_size      = next;
@@ -81,40 +76,51 @@ void WBMEMORY::Load(const std::string &filename) {
 
 // -----------------------------------------------------------------------------
 // Execute model: read/write operations.
-void WBMEMORY::operator()(const uint32_t wbs_addr_i, const uint32_t wbs_dat_i, const uint8_t wbs_sel_i,
+// Return FALSE for normal operation, TRUE for critical error: out-of-bound access
+bool WBMEMORY::operator()(const uint32_t wbs_addr_i, const uint32_t wbs_dat_i, const uint8_t wbs_sel_i,
                           const uint8_t wbs_cyc_i, const uint8_t wbs_stb_i, const uint8_t wbs_we_i,
                           uint32_t &wbs_data_o, uint8_t &wbs_ack_o, uint8_t &wbs_err_o) {
         auto addr     = (wbs_addr_i >> 2) & m_mask; // Byte address to word address.
         auto mem_size = m_size << 2;
 
-        // check if the address is out of range.
-        if (wbs_addr_i < m_base_addr || wbs_addr_i >= m_base_addr + mem_size) {
-                printf(ANSI_COLOR_RED "[WBMEMORY] Invalid access: 0x%08x\n" ANSI_COLOR_RESET, wbs_addr_i);
-                exit(EXIT_FAILURE);
-        }
-        // assume this is called every clock cycle
+        // Default state for memory
         wbs_data_o = 0xdeadf00d;
         wbs_ack_o  = 0;
         wbs_err_o  = 0;
 
-        if (wbs_cyc_i and wbs_stb_i) {
-                if (m_delay_cnt++ == m_delay) {
-                        if (wbs_we_i) {
-                                auto b0 = (wbs_sel_i & 0x01 ? wbs_dat_i : (*m_memory)[addr]) & 0x000000ff;
-                                auto b1 = (wbs_sel_i & 0x02 ? wbs_dat_i : (*m_memory)[addr]) & 0x0000ff00;
-                                auto b2 = (wbs_sel_i & 0x04 ? wbs_dat_i : (*m_memory)[addr]) & 0x00ff0000;
-                                auto b3 = (wbs_sel_i & 0x08 ? wbs_dat_i : (*m_memory)[addr]) & 0xff000000;
-                                (*m_memory)[addr] = b3 | b2 | b1 | b0;
-                        }
-                        wbs_data_o  = (*m_memory)[addr];
-                        wbs_ack_o   = 1;
-                        wbs_err_o   = 0;
-                        m_delay_cnt = 0;
-                }
+        // check for access
+        if (!(wbs_cyc_i && wbs_stb_i))
+                return false;
+
+        // check if the address is out of memory range.
+        if (wbs_addr_i < m_base_addr || wbs_addr_i >= m_base_addr + mem_size) {
+                fprintf(stderr, ANSI_COLOR_RED "[WBMEMORY] Invalid bus access: 0x%08x\n" ANSI_COLOR_RESET, wbs_addr_i);
+                return true;
         }
+        // bus access
+        if (m_delay_cnt++ == m_delay) {
+                if (wbs_we_i) {
+                        auto b0 = (wbs_sel_i & 0x01 ? wbs_dat_i : (*m_memory)[addr]) & 0x000000ff;
+                        auto b1 = (wbs_sel_i & 0x02 ? wbs_dat_i : (*m_memory)[addr]) & 0x0000ff00;
+                        auto b2 = (wbs_sel_i & 0x04 ? wbs_dat_i : (*m_memory)[addr]) & 0x00ff0000;
+                        auto b3 = (wbs_sel_i & 0x08 ? wbs_dat_i : (*m_memory)[addr]) & 0xff000000;
+                        (*m_memory)[addr] = b3 | b2 | b1 | b0;
+                }
+                wbs_data_o  = (*m_memory)[addr];
+                wbs_ack_o   = 1;
+                wbs_err_o   = 0;
+                m_delay_cnt = 0;
+        }
+        return false;
 }
 
 // -----------------------------------------------------------------------------
 uint32_t &WBMEMORY::operator[](const uint32_t addr) {
-        return (*m_memory)[addr];
+        // WARNING: addr is in word space. NOT BY
+        const uint32_t _addr = addr - (m_base_addr >> 2);
+        if (_addr >= m_size) {
+                fprintf(stderr, ANSI_COLOR_RED "[WBMEMORY] Invalid access: 0x%08x\n" ANSI_COLOR_RESET, addr);
+                exit(EXIT_FAILURE);
+        }
+        return (*m_memory)[_addr];
 }
