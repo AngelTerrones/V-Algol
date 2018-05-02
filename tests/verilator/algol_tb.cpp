@@ -26,9 +26,10 @@
 #include "inputparser.h"
 #include "colors.h"
 
-#define TOHOST 0x1000
-#define FROMHOST 0x1040
-#define SYSCALL 64
+// TODDO: read this variables from the ELF file.
+#define TOHOST   0xC0001000u
+#define FROMHOST 0xC0001040u
+#define SYSCALL  64
 
 // -----------------------------------------------------------------------------
 // The testbench
@@ -46,7 +47,7 @@ public:
                         printf(ANSI_COLOR_GREEN "Simulation done. Time %u\n" ANSI_COLOR_RESET, time);
                         exit_code = 0;
                 } else if (time < max_time) {
-                        printf(ANSI_COLOR_RED "Simulation error. Exit code: %08X. Time: %u\n" ANSI_COLOR_RESET, m_core->wbm_mem_0_dat_o, time);
+                        printf(ANSI_COLOR_RED "Simulation error. Exit code: %08X. Time: %u\n" ANSI_COLOR_RESET, m_core->wbm_mem_1_dat_o, time);
                         exit_code = 1;
                 } else {
                         printf(ANSI_COLOR_MAGENTA "Simulation error. Timeout. Time: %u\n" ANSI_COLOR_RESET, time);
@@ -59,10 +60,10 @@ public:
         // check for syscall
         bool CheckTOHOST(WBMEMORY &memory, bool &ok) const {
                 bool _exit = false;
-                if (m_core->wbm_mem_0_addr_o == TOHOST and m_core->wbm_mem_0_cyc_o and m_core->wbm_mem_0_stb_o and m_core->wbm_mem_0_we_o and m_core->wbm_mem_0_ack_i) {
-                        if (m_core->wbm_mem_0_dat_o != 1) {
+                if (m_core->wbm_mem_1_addr_o == TOHOST and m_core->wbm_mem_1_cyc_o and m_core->wbm_mem_1_stb_o and m_core->wbm_mem_1_we_o and m_core->wbm_mem_1_ack_i) {
+                        if (m_core->wbm_mem_1_dat_o != 1) {
                                 // check for syscalls (used by benchmarks)
-                                const uint32_t data0 = m_core->wbm_mem_0_dat_o >> 2; // byte2word
+                                const uint32_t data0 = m_core->wbm_mem_1_dat_o >> 2; // byte2word
                                 const uint32_t data1 = data0 + 2;                    // data is 64-bit aligned.
                                 if (memory[data0] == SYSCALL and memory[data1] == 1) {
                                         memory[FROMHOST >> 2] = 1;
@@ -97,7 +98,7 @@ public:
         // -----------------------------------------------------------------------------
         // Run the CPU model.
         int SimulateCore(const std::string &progfile, const unsigned long max_time=1000000L) {
-                const std::unique_ptr<WBMEMORY> memory_ptr(new WBMEMORY(0x0, 0x20000));
+                const std::unique_ptr<WBMEMORY> memory_ptr(new WBMEMORY(0xC0000000, 0x20000));
                 WBMEMORY &memory = *memory_ptr;
                 memory.Load(progfile);
 
@@ -108,10 +109,9 @@ public:
                 printf(ANSI_COLOR_YELLOW "Executing file: %s\n" ANSI_COLOR_RESET, progfile.c_str());
                 for (; getTime() < max_time;) {
                         Tick();
-                        memory(m_core->wbm_mem_0_addr_o, m_core->wbm_mem_0_dat_o, m_core->wbm_mem_0_sel_o, m_core->wbm_mem_0_cyc_o, m_core->wbm_mem_0_stb_o,
-                               m_core->wbm_mem_0_we_o, m_core->wbm_mem_0_dat_i, m_core->wbm_mem_0_ack_i, m_core->wbm_mem_0_err_i);
-
-                        if (CheckTOHOST(memory, ok))
+                        auto mem1bad = memory(m_core->wbm_mem_1_addr_o, m_core->wbm_mem_1_dat_o, m_core->wbm_mem_1_sel_o, m_core->wbm_mem_1_cyc_o, m_core->wbm_mem_1_stb_o,
+                                            m_core->wbm_mem_1_we_o, m_core->wbm_mem_1_dat_i, m_core->wbm_mem_1_ack_i, m_core->wbm_mem_1_err_i);
+                        if (mem1bad or CheckTOHOST(memory, ok))
                                 break;
                 }
                 Tick();
