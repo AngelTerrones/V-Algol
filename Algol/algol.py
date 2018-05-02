@@ -94,7 +94,7 @@ def Algol(clk_i, rst_i, wbm_mem_0, wbm_mem_1, wbm_io, xinterrupts_i, config):
 
     # --------------------------------------------------------------------------
     # bus
-    @hdl.always_seq(clk_i.posedge, reset=rst_i)
+    @hdl.always_comb
     def request_access_proc():
         requests.next[AddressMap.ram_0_index] = AddressMap.access_ram_0(io_master.addr_o)
         requests.next[AddressMap.io_index]    = AddressMap.access_io(io_master.addr_o)
