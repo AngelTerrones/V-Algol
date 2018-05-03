@@ -65,7 +65,7 @@ run-algol-tests: compile-tests build-algol
 run-algol-benchmarks: compile-benchmarks build-algol
 	@$(eval .RVBENCHMARKS:=$(shell find $(.RVBENCHMARKSF) -name "*.riscv"))
 	@for file in $(.RVBENCHMARKS); do \
-		$(.ALGOLCMD) $$file > /dev/null; \
+		$(.ALGOLCMD) $$file --benchmark > /dev/null; \
 		if [ $$? -eq 0 ]; then \
 			printf "%-50b %b\n" $$file "$(.OK_COLOR)$(.OK_STRING)$(.NO_COLOR)"; \
 		else \

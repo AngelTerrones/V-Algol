@@ -26,10 +26,10 @@
 #include "inputparser.h"
 #include "colors.h"
 
-// TODDO: read this variables from the ELF file.
-#define TOHOST   0xC0001000u
-#define FROMHOST 0xC0001040u
 #define SYSCALL  64
+// TODO: read this variables from the ELF file.
+#define TOHOST   0x1C001000u
+#define FROMHOST 0x1C001040u
 
 // -----------------------------------------------------------------------------
 // The testbench
@@ -47,7 +47,7 @@ public:
                         printf(ANSI_COLOR_GREEN "Simulation done. Time %u\n" ANSI_COLOR_RESET, time);
                         exit_code = 0;
                 } else if (time < max_time) {
-                        printf(ANSI_COLOR_RED "Simulation error. Exit code: %08X. Time: %u\n" ANSI_COLOR_RESET, m_core->wbm_mem_1_dat_o, time);
+                        printf(ANSI_COLOR_RED "Simulation error. Exit code: %08X. Time: %u\n" ANSI_COLOR_RESET, m_core->wbm_mem_dat_o, time);
                         exit_code = 1;
                 } else {
                         printf(ANSI_COLOR_MAGENTA "Simulation error. Timeout. Time: %u\n" ANSI_COLOR_RESET, time);
@@ -58,22 +58,27 @@ public:
 
         // -----------------------------------------------------------------------------
         // check for syscall
-        bool CheckTOHOST(WBMEMORY &memory, bool &ok) const {
-                bool _exit = false;
-                if (m_core->wbm_mem_1_addr_o == TOHOST and m_core->wbm_mem_1_cyc_o and m_core->wbm_mem_1_stb_o and m_core->wbm_mem_1_we_o and m_core->wbm_mem_1_ack_i) {
-                        if (m_core->wbm_mem_1_dat_o != 1) {
-                                // check for syscalls (used by benchmarks)
-                                const uint32_t data0 = m_core->wbm_mem_1_dat_o >> 2; // byte2word
-                                const uint32_t data1 = data0 + 2;                    // data is 64-bit aligned.
-                                if (memory[data0] == SYSCALL and memory[data1] == 1) {
-                                        memory[FROMHOST >> 2] = 1;
-                                        SyscallPrint(memory, data0);
-                                } else {
-                                        _exit = true;
+        bool CheckTOHOST(const bool benchmark, WBMEMORY &memory, bool &ok) const {
+                // tohost should live in RAM1: use mem_1 port.
+                const bool transaction = m_core->wbm_mem_cyc_o and m_core->wbm_mem_stb_o;
+                const bool isTH        = m_core->wbm_mem_addr_o == TOHOST;
+                bool       _exit       = false;
+                if (isTH and transaction and m_core->wbm_mem_we_o and m_core->wbm_mem_ack_i) {
+                        ok    = m_core->wbm_mem_dat_o == 1;
+                        _exit = ok;
+                        if (!ok) {
+                                _exit = !benchmark;
+                                if (benchmark) {
+                                        // check for syscall
+                                        const uint32_t data0 = m_core->wbm_mem_dat_o >> 2; // byte2word
+                                        const uint32_t data1 = data0 + 2;                    // data is 64-bit aligned.
+                                        if (memory[data0] == SYSCALL and memory[data1] == 1) {
+                                                memory[FROMHOST >> 2] = 1;
+                                                SyscallPrint(memory, data0);
+                                        } else {
+                                                _exit = true;
+                                        }
                                 }
-                        } else {
-                                ok    = true;
-                                _exit = true;
                         }
                 }
                 return _exit;
@@ -97,8 +102,15 @@ public:
 
         // -----------------------------------------------------------------------------
         // Run the CPU model.
-        int SimulateCore(const std::string &progfile, const unsigned long max_time=1000000L) {
-                const std::unique_ptr<WBMEMORY> memory_ptr(new WBMEMORY(0xC0000000, 0x20000));
+        int SimulateCore(const std::string &progfile, const unsigned long max_time=1000000L, const bool benchmark=false) {
+                /*
+                  This assumes a simulation memory of 128MB, with 64MB for Mregion, and 64MB for Uregion.
+                  The boot address, in *.ini file must be the physical address of the 64MB Mregion, in this
+                  case, 0x1C000000 (448 MB)
+                 */
+                const uint32_t MEMSZ    = 0x08000000; // 128 MB
+                const uint32_t MEMSTART = 0x1C000000; // 448 MB
+                const std::unique_ptr<WBMEMORY> memory_ptr(new WBMEMORY(MEMSTART, MEMSZ >> 2));
                 WBMEMORY &memory = *memory_ptr;
                 memory.Load(progfile);
 
@@ -109,9 +121,9 @@ public:
                 printf(ANSI_COLOR_YELLOW "Executing file: %s\n" ANSI_COLOR_RESET, progfile.c_str());
                 for (; getTime() < max_time;) {
                         Tick();
-                        auto mem1bad = memory(m_core->wbm_mem_1_addr_o, m_core->wbm_mem_1_dat_o, m_core->wbm_mem_1_sel_o, m_core->wbm_mem_1_cyc_o, m_core->wbm_mem_1_stb_o,
-                                            m_core->wbm_mem_1_we_o, m_core->wbm_mem_1_dat_i, m_core->wbm_mem_1_ack_i, m_core->wbm_mem_1_err_i);
-                        if (mem1bad or CheckTOHOST(memory, ok))
+                        auto mem1bad = memory(m_core->wbm_mem_addr_o, m_core->wbm_mem_dat_o, m_core->wbm_mem_sel_o, m_core->wbm_mem_cyc_o, m_core->wbm_mem_stb_o,
+                                              m_core->wbm_mem_we_o, m_core->wbm_mem_dat_i, m_core->wbm_mem_ack_i, m_core->wbm_mem_err_i);
+                        if (mem1bad or CheckTOHOST(benchmark, memory, ok))
                                 break;
                 }
                 Tick();
@@ -124,7 +136,8 @@ public:
 void PrintHelp() {
         printf("Algol Verilator model.\n");
         printf("Usage:\n");
-        printf("\tAlgol.exe --frequency <core frequency> --timeout <max simulation time> --file <filename> [--trace] [--trace-directory <trace directory>]\n");
+        printf("\tAlgol.exe --frequency <core frequency> --timeout <max simulation time> --file <filename> "
+               "[--benchmark] [--trace] [--trace-directory <trace directory>]\n");
 }
 
 // -----------------------------------------------------------------------------
@@ -135,6 +148,7 @@ int main(int argc, char **argv) {
         const std::string &s_frequency = input.GetCmdOption("--frequency");
         const std::string &s_timeout   = input.GetCmdOption("--timeout");
         const std::string &s_trace_dir = input.GetCmdOption("--trace-directory");
+        const bool benchmark           = input.CmdOptionExist("--benchmark");
         const bool trace               = input.CmdOptionExist("--trace");
         const bool help                = input.CmdOptionExist("--help");
 
@@ -153,7 +167,7 @@ int main(int argc, char **argv) {
                 tb->OpenTrace(vcdfile.data());
         }
         tb->Reset();
-        int result = tb->SimulateCore(s_progfile, timeout);
+        int result = tb->SimulateCore(s_progfile, timeout, benchmark);
 
         return result;
 }

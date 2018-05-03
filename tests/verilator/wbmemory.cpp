@@ -38,6 +38,7 @@ WBMEMORY::WBMEMORY(const uint32_t base_addr, const uint32_t nwords, const uint32
         m_delay     = delay;
         m_delay_cnt = 0;
         m_base_addr = base_addr;
+        printf(ANSI_COLOR_YELLOW "Memory size: 0x%08X bytes\n" ANSI_COLOR_RESET, uint32_t(m_memory->size() << 2));
 }
 
 // -----------------------------------------------------------------------------
@@ -80,7 +81,7 @@ void WBMEMORY::Load(const std::string &filename) {
 bool WBMEMORY::operator()(const uint32_t wbs_addr_i, const uint32_t wbs_dat_i, const uint8_t wbs_sel_i,
                           const uint8_t wbs_cyc_i, const uint8_t wbs_stb_i, const uint8_t wbs_we_i,
                           uint32_t &wbs_data_o, uint8_t &wbs_ack_o, uint8_t &wbs_err_o) {
-        auto addr     = (wbs_addr_i >> 2) & m_mask; // Byte address to word address.
+        auto addr     = ((wbs_addr_i - m_base_addr) >> 2) & m_mask; // Byte address to word address.
         auto mem_size = m_size << 2;
 
         // Default state for memory

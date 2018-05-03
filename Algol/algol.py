@@ -16,36 +16,29 @@ class AddressMap:
     Definition of memory regions for the Algol core.
 
     Default regions:
-    - region_0_addr_init = 0x00000000 # RAM 0: 2 GB
+    - region_0_addr_init = 0x00000000 # RAM: 2 GB (external controller)
     - region_0_addr_end  = 0x7FFFFFFF #
-    - region_1_addr_init = 0x80000000 # I/O: 1 GB (needs external bus)
-    - region_1_addr_end  = 0xBFFFFFFF #
-    - region_2_addr_init = 0xC0000000 # RAM 1: 512 MB
-    - region_2_addr_end  = 0xDFFFFFFF #
-    - region_3_addr_init = 0xE0000000 # PLIC: 128 MB (internal module)
-    - region_3_addr_end  = 0xE7FFFFFF #
-    - region_4_addr_init = 0xE8000000 # PCR: 128 MB (internal module)
-    - region_4_addr_end  = 0xEFFFFFFF #
-    - region_5_addr_init = 0xF0000000 # (Unimplemented) DEBUG: 256 MB (internal module)
-    - region_5_addr_end  = 0xFFFFFFFF #
+    - region_1_addr_init = 0x80000000 # I/O: 1.5 GB (needs external bus)
+    - region_1_addr_end  = 0xDFFFFFFF #
+    - region_2_addr_init = 0xE0000000 # PLIC: 128 MB (internal module)
+    - region_2_addr_end  = 0xE7FFFFFF #
+    - region_3_addr_init = 0xE8000000 # PCR: 128 MB (internal module)
+    - region_3_addr_end  = 0xEFFFFFFF #
+    - region_4_addr_init = 0xF0000000 # (Unimplemented) DEBUG: 256 MB (internal module)
+    - region_4_addr_end  = 0xFFFFFFFF #
     """
     # Indexes
-    ram_0_index = 0
-    io_index    = 1
-    ram_1_index = 2
-    plic_index  = 3
-    pcr_index   = 4
+    ram_index  = 0
+    io_index   = 1
+    plic_index = 2
+    pcr_index  = 3
 
     @staticmethod
-    def access_ram_0(address):
+    def access_ram(address):
         return address[31] == 0
 
     @staticmethod
     def access_io(address):
-        return address[32:30] == 0b10
-
-    @staticmethod
-    def access_ram_1(address):
         return address[32:29] == 0b110
 
     @staticmethod
@@ -62,14 +55,13 @@ class AddressMap:
 
 
 @hdl.block
-def Algol(clk_i, rst_i, wbm_mem_0, wbm_mem_1, wbm_io, xinterrupts_i, config):
+def Algol(clk_i, rst_i, wbm_mem, wbm_io, xinterrupts_i, config):
     """Algol: Algol SoC"""
-    assert isinstance(wbm_mem_0, WishboneMaster), '[Algol] Error: wbm_mem_0 port must be of type WishboneMaster'
-    assert isinstance(wbm_mem_1, WishboneMaster), '[Algol] Error: wbm_mem_1 port must be of type WishboneMaster'
+    assert isinstance(wbm_mem, WishboneMaster), '[Algol] Error: wbm_mem port must be of type WishboneMaster'
     assert isinstance(wbm_io, WishboneMaster), '[Algol] Error: wbm_io port must be of type WishboneMaster'
     assert isinstance(config, Configuration), '[Algol] Error: config data must be of type Configuration'
 
-    nslaves     = 5  # ignore debug module for now.
+    nslaves     = 4  # ignore debug module for now.
     io_master   = WishboneMaster()
     io_slaves   = [WishboneMaster() for _ in range(nslaves)]
     wbs_plic    = WishboneSlave(io_slaves[AddressMap.plic_index])
@@ -96,11 +88,10 @@ def Algol(clk_i, rst_i, wbm_mem_0, wbm_mem_1, wbm_io, xinterrupts_i, config):
     # bus
     @hdl.always_comb
     def request_access_proc():
-        requests.next[AddressMap.ram_0_index] = AddressMap.access_ram_0(io_master.addr_o)
-        requests.next[AddressMap.io_index]    = AddressMap.access_io(io_master.addr_o)
-        requests.next[AddressMap.ram_1_index] = AddressMap.access_ram_1(io_master.addr_o)
-        requests.next[AddressMap.plic_index]  = AddressMap.access_plic(io_master.addr_o)
-        requests.next[AddressMap.pcr_index]   = AddressMap.access_pcr(io_master.addr_o)
+        requests.next[AddressMap.ram_index]  = AddressMap.access_ram(io_master.addr_o)
+        requests.next[AddressMap.io_index]   = AddressMap.access_io(io_master.addr_o)
+        requests.next[AddressMap.plic_index] = AddressMap.access_plic(io_master.addr_o)
+        requests.next[AddressMap.pcr_index]  = AddressMap.access_pcr(io_master.addr_o)
 
     @hdl.always_seq(clk_i.posedge, reset=rst_i)
     def m2s_assign_proc():
@@ -117,28 +108,16 @@ def Algol(clk_i, rst_i, wbm_mem_0, wbm_mem_1, wbm_io, xinterrupts_i, config):
                 io_master.err_i.next = slave_err[ii]
 
     @hdl.always_comb
-    def mem_0_port_assign_proc():
-        wbm_mem_0.addr_o.next                    = slave_addr[AddressMap.ram_0_index]
-        wbm_mem_0.dat_o.next                     = slave_dat_o[AddressMap.ram_0_index]
-        wbm_mem_0.sel_o.next                     = slave_sel[AddressMap.ram_0_index]
-        wbm_mem_0.cyc_o.next                     = slave_cyc[AddressMap.ram_0_index]
-        wbm_mem_0.stb_o.next                     = slave_stb[AddressMap.ram_0_index]
-        wbm_mem_0.we_o.next                      = slave_we[AddressMap.ram_0_index]
-        slave_dat_i[AddressMap.ram_0_index].next = wbm_mem_0.dat_i
-        slave_ack[AddressMap.ram_0_index].next   = wbm_mem_0.ack_i
-        slave_err[AddressMap.ram_0_index].next   = wbm_mem_0.err_i
-
-    @hdl.always_comb
-    def mem_1_port_assign_proc():
-        wbm_mem_1.addr_o.next                    = slave_addr[AddressMap.ram_1_index]
-        wbm_mem_1.dat_o.next                     = slave_dat_o[AddressMap.ram_1_index]
-        wbm_mem_1.sel_o.next                     = slave_sel[AddressMap.ram_1_index]
-        wbm_mem_1.cyc_o.next                     = slave_cyc[AddressMap.ram_1_index]
-        wbm_mem_1.stb_o.next                     = slave_stb[AddressMap.ram_1_index]
-        wbm_mem_1.we_o.next                      = slave_we[AddressMap.ram_1_index]
-        slave_dat_i[AddressMap.ram_1_index].next = wbm_mem_1.dat_i
-        slave_ack[AddressMap.ram_1_index].next   = wbm_mem_1.ack_i
-        slave_err[AddressMap.ram_1_index].next   = wbm_mem_1.err_i
+    def mem_port_assign_proc():
+        wbm_mem.addr_o.next                    = slave_addr[AddressMap.ram_index]
+        wbm_mem.dat_o.next                     = slave_dat_o[AddressMap.ram_index]
+        wbm_mem.sel_o.next                     = slave_sel[AddressMap.ram_index]
+        wbm_mem.cyc_o.next                     = slave_cyc[AddressMap.ram_index]
+        wbm_mem.stb_o.next                     = slave_stb[AddressMap.ram_index]
+        wbm_mem.we_o.next                      = slave_we[AddressMap.ram_index]
+        slave_dat_i[AddressMap.ram_index].next = wbm_mem.dat_i
+        slave_ack[AddressMap.ram_index].next   = wbm_mem.ack_i
+        slave_err[AddressMap.ram_index].next   = wbm_mem.err_i
 
     @hdl.always_comb
     def io_port_assign_proc():
@@ -168,12 +147,11 @@ if __name__ == '__main__':
     filename    = args.filename
     clk_i       = createSignal(0, 1)
     rst_i       = hdl.ResetSignal(0, active=True, async=False)
-    wbm_mem_0   = WishboneMaster()
-    wbm_mem_1   = WishboneMaster()
+    wbm_mem     = WishboneMaster()
     wbm_io      = WishboneMaster()
     xint        = createSignal(0, 31)
     config      = Configuration(config_file)
-    dut         = Algol(clk_i, rst_i, wbm_mem_0, wbm_mem_1, wbm_io, xint, config)
+    dut         = Algol(clk_i, rst_i, wbm_mem, wbm_io, xint, config)
     dut.convert(path=path, name=filename, trace=False, testbench=False)
 
 # Local Variables:
