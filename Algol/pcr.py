@@ -98,7 +98,7 @@ def PCR(clk_i, rst_i, wbs_io, sip_o, tip_o, config):
     @hdl.always_seq(clk_i.posedge, reset=rst_i)
     def read_proc():
         if is_sip:
-            _dat_o.next = _sip
+            _dat_o.next = hdl.concat(hdl.modbv(0)[31:], _sip)
         elif is_tcmpl:
             _dat_o.next = _timecmp[32:0]
         elif is_tcmph:

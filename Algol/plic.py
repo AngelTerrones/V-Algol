@@ -108,7 +108,7 @@ def PLIC(clk_i, rst_i, wbs_io, eip_o, xinterrupts_i, config):
     @hdl.always_seq(clk_i.posedge, reset=rst_i)
     def ie_write_proc():
         if is_ie and _we:
-            ie.next = hdl.concat(wbs_io.dat_i[31:1], False)
+            ie.next = hdl.concat(wbs_io.dat_i[32:1], False)  # before: 31:1 (python)
 
     @hdl.always_seq(clk_i.posedge, reset=rst_i)
     def claim_write_proc():
@@ -121,10 +121,10 @@ def PLIC(clk_i, rst_i, wbs_io, eip_o, xinterrupts_i, config):
     # get the interrupt source
     @hdl.always_comb
     def get_interrupt_source_proc():
-        _id = 0
+        _id = hdl.modbv(0)[5:]
         for source in range(nsources):
             if ip[source] and ie[source]:
-                _id = source
+                _id = hdl.modbv(source)[5:]
         _eip.next   = _id
         _claim.next = _id
 
