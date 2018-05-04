@@ -10,8 +10,10 @@ SHELL=bash
 .BFOLDER:=build
 .RVTESTSF:=tests/riscv-tests
 .RVBENCHMARKSF:=tests/benchmarks
+.BOOTFOLDER:=tests/bootstrap
+.BOOTELF:=$(.BOOTFOLDER)/bootstrap.elf
 .MK_ALGOL:=tests/verilator/build.mk
-.ALGOLCMD:=$(.BFOLDER)/Algol.exe --frequency 10e6 --timeout 1000000000 --file
+.ALGOLCMD:=$(.BFOLDER)/Algol.exe --frequency 10e6 --timeout 1000000000 --boot $(.BOOTELF) --file
 .PFILES=$(shell find Algol -name "*.py")
 .PYTHON=python3
 
@@ -23,6 +25,7 @@ help:
 	@echo -e "Please, choose one target:"
 	@echo -e "- compile-tests:          Compile RISC-V assembler tests"
 	@echo -e "- compile-benchmarks:     Compile RISC-V benchmarks"
+	@echo -e "- compile-bootstrap:      Compile bootstrap code for RISC-V tests and bencchmarks"
 	@echo -e "- verilate-algol:         Generate C++ core model (ALGOL)"
 	@echo -e "- build-algol:            Build C++ core model (ALGOL)"
 	@echo -e "- run-algol-tests:        Execute assembler tests using the C++ testbench (ALGOL)"
@@ -34,6 +37,9 @@ compile-tests:
 
 compile-benchmarks:
 	+@$(.SUBMAKE) -C $(.RVBENCHMARKSF)
+
+compile-bootstrap:
+	+@$(.SUBMAKE) -C $(.BOOTFOLDER)
 
 # ------------------------------------------------------------------------------
 # verilate
@@ -51,7 +57,7 @@ build-algol: verilate-algol
 
 # ------------------------------------------------------------------------------
 # verilator tests
-run-algol-tests: compile-tests build-algol
+run-algol-tests: compile-bootstrap compile-tests build-algol
 	@$(eval .RVTESTS:=$(shell find $(.RVTESTSF) -name "rv32ui*.elf" -o -name "rv32mi*.elf" ! -name "*breakpoint*.elf"))
 	@for file in $(.RVTESTS); do \
 		$(.ALGOLCMD) $$file > /dev/null; \
@@ -62,7 +68,7 @@ run-algol-tests: compile-tests build-algol
 		fi; \
 	done
 
-run-algol-benchmarks: compile-benchmarks build-algol
+run-algol-benchmarks: compile-bootstrap compile-benchmarks build-algol
 	@$(eval .RVBENCHMARKS:=$(shell find $(.RVBENCHMARKSF) -name "*.riscv"))
 	@for file in $(.RVBENCHMARKS); do \
 		$(.ALGOLCMD) $$file --benchmark > /dev/null; \
@@ -83,5 +89,6 @@ distclean: clean
 	@find . | grep -E "(__pycache__|\.pyc|\.pyo|\.cache)" | xargs rm -rf
 	@$(.SUBMAKE) -C $(.RVTESTSF) clean
 	@$(.SUBMAKE) -C $(.RVBENCHMARKSF) clean
+	@$(.SUBMAKE) -C $(.BOOTFOLDER) clean
 
 .PHONY: compile-tests compile-benchmarks run-tests run-benchmarks clean distclean

@@ -28,8 +28,8 @@
 
 #define SYSCALL  64
 // TODO: read this variables from the ELF file.
-#define TOHOST   0x1C001000u
-#define FROMHOST 0x1C001040u
+#define TOHOST   0x20001000u
+#define FROMHOST 0x20001040u
 
 // -----------------------------------------------------------------------------
 // The testbench
@@ -102,7 +102,7 @@ public:
 
         // -----------------------------------------------------------------------------
         // Run the CPU model.
-        int SimulateCore(const std::string &progfile, const unsigned long max_time=1000000L, const bool benchmark=false) {
+        int SimulateCore(const std::string &progfile, const std::string &bootfile, const unsigned long max_time=1000000L, const bool benchmark=false) {
                 /*
                   This assumes a simulation memory of 128MB, with 64MB for Mregion, and 64MB for Uregion.
                   The boot address, in *.ini file must be the physical address of the 64MB Mregion, in this
@@ -112,6 +112,10 @@ public:
                 const uint32_t MEMSTART = 0x1C000000; // 448 MB
                 const std::unique_ptr<WBMEMORY> memory_ptr(new WBMEMORY(MEMSTART, MEMSZ >> 2));
                 WBMEMORY &memory = *memory_ptr;
+                if (!bootfile.empty()){
+                        printf(ANSI_COLOR_YELLOW "Loading bootstrap: %s\n" ANSI_COLOR_RESET, bootfile.c_str());
+                        memory.Load(bootfile);
+                }
                 memory.Load(progfile);
 
                 // initial values for unused ports
@@ -136,7 +140,7 @@ public:
 void PrintHelp() {
         printf("Algol Verilator model.\n");
         printf("Usage:\n");
-        printf("\tAlgol.exe --frequency <core frequency> --timeout <max simulation time> --file <filename> "
+        printf("\tAlgol.exe --frequency <core frequency> --timeout <max simulation time> --file <filename> [--boot <filename>]"
                "[--benchmark] [--trace] [--trace-directory <trace directory>]\n");
 }
 
@@ -145,6 +149,7 @@ void PrintHelp() {
 int main(int argc, char **argv) {
         INPUTPARSER input(argc, argv);
         const std::string &s_progfile  = input.GetCmdOption("--file");
+        const std::string &s_bootfile  = input.GetCmdOption("--boot");
         const std::string &s_frequency = input.GetCmdOption("--frequency");
         const std::string &s_timeout   = input.GetCmdOption("--timeout");
         const std::string &s_trace_dir = input.GetCmdOption("--trace-directory");
@@ -167,7 +172,7 @@ int main(int argc, char **argv) {
                 tb->OpenTrace(vcdfile.data());
         }
         tb->Reset();
-        int result = tb->SimulateCore(s_progfile, timeout, benchmark);
+        int result = tb->SimulateCore(s_progfile, s_bootfile, timeout, benchmark);
 
         return result;
 }
