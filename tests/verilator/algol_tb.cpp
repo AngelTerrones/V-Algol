@@ -26,10 +26,31 @@
 #include "inputparser.h"
 #include "colors.h"
 
+// syscall (benchmarks)
 #define SYSCALL  64
-// TODO: read this variables from the ELF file.
 #define TOHOST   0x20001000u
 #define FROMHOST 0x20001040u
+
+// Use short names for the core signals
+#define mem_addr_o m_core->wbm_mem_addr_o
+#define mem_dat_o  m_core->wbm_mem_dat_o
+#define mem_sel_o  m_core->wbm_mem_sel_o
+#define mem_cyc_o  m_core->wbm_mem_cyc_o
+#define mem_stb_o  m_core->wbm_mem_stb_o
+#define mem_we_o   m_core->wbm_mem_we_o
+#define mem_dat_i  m_core->wbm_mem_dat_i
+#define mem_ack_i  m_core->wbm_mem_ack_i
+#define mem_err_i  m_core->wbm_mem_err_i
+
+#define io_addr_o m_core->wbm_io_addr_o
+#define io_dat_o  m_core->wbm_io_dat_o
+#define io_sel_o  m_core->wbm_io_sel_o
+#define io_cyc_o  m_core->wbm_io_cyc_o
+#define io_stb_o  m_core->wbm_io_stb_o
+#define io_we_o   m_core->wbm_io_we_o
+#define io_dat_i  m_core->wbm_io_dat_i
+#define io_ack_i  m_core->wbm_io_ack_i
+#define io_err_i  m_core->wbm_io_err_i
 
 // -----------------------------------------------------------------------------
 // The testbench
@@ -47,7 +68,7 @@ public:
                         printf(ANSI_COLOR_GREEN "Simulation done. Time %u\n" ANSI_COLOR_RESET, time);
                         exit_code = 0;
                 } else if (time < max_time) {
-                        printf(ANSI_COLOR_RED "Simulation error. Exit code: %08X. Time: %u\n" ANSI_COLOR_RESET, m_core->wbm_mem_dat_o, time);
+                        printf(ANSI_COLOR_RED "Simulation error. Exit code: %08X. Time: %u\n" ANSI_COLOR_RESET, mem_dat_o, time);
                         exit_code = 1;
                 } else {
                         printf(ANSI_COLOR_MAGENTA "Simulation error. Timeout. Time: %u\n" ANSI_COLOR_RESET, time);
@@ -60,17 +81,17 @@ public:
         // check for syscall
         bool CheckTOHOST(const bool benchmark, WBMEMORY &memory, bool &ok) const {
                 // tohost should live in RAM1: use mem_1 port.
-                const bool transaction = m_core->wbm_mem_cyc_o and m_core->wbm_mem_stb_o;
-                const bool isTH        = m_core->wbm_mem_addr_o == TOHOST;
+                const bool transaction = mem_cyc_o and mem_stb_o;
+                const bool isTH        = mem_addr_o == TOHOST;
                 bool       _exit       = false;
-                if (isTH and transaction and m_core->wbm_mem_we_o and m_core->wbm_mem_ack_i) {
-                        ok    = m_core->wbm_mem_dat_o == 1;
+                if (isTH and transaction and mem_we_o and mem_ack_i) {
+                        ok    = mem_dat_o == 1;
                         _exit = ok;
                         if (!ok) {
                                 _exit = !benchmark;
                                 if (benchmark) {
                                         // check for syscall
-                                        const uint32_t data0 = m_core->wbm_mem_dat_o >> 2; // byte2word
+                                        const uint32_t data0 = mem_dat_o >> 2; // byte2word
                                         const uint32_t data1 = data0 + 2;                    // data is 64-bit aligned.
                                         if (memory[data0] == SYSCALL and memory[data1] == 1) {
                                                 memory[FROMHOST >> 2] = 1;
@@ -125,8 +146,8 @@ public:
                 printf(ANSI_COLOR_YELLOW "Executing file: %s\n" ANSI_COLOR_RESET, progfile.c_str());
                 for (; getTime() < max_time;) {
                         Tick();
-                        auto mem1bad = memory(m_core->wbm_mem_addr_o, m_core->wbm_mem_dat_o, m_core->wbm_mem_sel_o, m_core->wbm_mem_cyc_o, m_core->wbm_mem_stb_o,
-                                              m_core->wbm_mem_we_o, m_core->wbm_mem_dat_i, m_core->wbm_mem_ack_i, m_core->wbm_mem_err_i);
+                        auto mem1bad = memory(mem_addr_o, mem_dat_o, mem_sel_o, mem_cyc_o, mem_stb_o, mem_we_o,
+                                              mem_dat_i, mem_ack_i, mem_err_i);
                         if (mem1bad or CheckTOHOST(benchmark, memory, ok))
                                 break;
                 }
