@@ -28,8 +28,8 @@
 
 // syscall (benchmarks)
 #define SYSCALL  64
-#define TOHOST   0x20001000u
-#define FROMHOST 0x20001040u
+#define TOHOST   0x1FFF0000u
+#define FROMHOST 0x1FFF0040u
 
 // Use short names for the core signals
 #define mem_addr_o m_core->wbm_mem_addr_o
