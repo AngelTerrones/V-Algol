@@ -39,7 +39,7 @@ class AddressMap:
 
     @staticmethod
     def access_io(address):
-        return address[32:29] == 0b110
+        return address[32:30] == 0b10 or address[32:29] == 0b110
 
     @staticmethod
     def access_plic(address):
