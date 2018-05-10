@@ -17,10 +17,13 @@
  */
 
 #include <stdio.h>
+#include <string.h>
+#include <unistd.h>
 #include <stdint.h>
-#include "syscall.h"
+#include <errno.h>
+#include <sys/stat.h>
 
-// exception cause
+// exception cause values
 #define X_INST_ADDRESS_MISA    0
 #define X_INST_ACCESS_FAULT    1
 #define X_ILLEGAL_INSTRUCTION  2
@@ -32,6 +35,7 @@
 #define X_UCALL                8
 #define X_SCALL                9
 #define X_MCALL                11
+// interrupt cause values
 #define I_USER_SW_INT          ((1 << 31) | 0)
 #define I_SUPERVISOR_SW_INT    ((1 << 31) | 1)
 #define I_MACHINE_SW_INT       ((1 << 31) | 3)
@@ -41,58 +45,162 @@
 #define I_USER_X_INT           ((1 << 31) | 8)
 #define I_SUPERVISOR_X_INT     ((1 << 31) | 9)
 #define I_MACHINE_X_INT        ((1 << 31) | 11)
-
+// syscalls definition
+#define SYS_EXIT  0
+#define SYS_READ  1
+#define SYS_WRITE 2
+// Console device address
+#define CONSOLE_BUFFER 0x80000000
+#define CONSOLE_FLUSH  0x80000004
+// Code placement
 #define LOCATE_FUNC __attribute__((__section__(".text.mcode")))
+#define UNIMP_FUNC(__f) ".globl " #__f "\n.type " #__f ", @function\n" #__f ":\n"
+
+// Private (machine) variables.
 extern volatile uint64_t tohost;
 
+// -----------------------------------------------------------------------------
 // for simulation purposes: write to tohost address.
-void __attribute__((noreturn)) LOCATE_FUNC tohost_exit(uintptr_t code) {
+void LOCATE_FUNC tohost_exit(uintptr_t code) {
         tohost = (code << 1) | 1;
         while(1);
-}
-
-// exit syscall
-void _exit(int code) {
-        // Load syscall code and arguments to a0-aX, and do the call
-        asm volatile ("move a1, a0;"
-                      "addi a0, zero, 0;"
-                      "ecall;");
         __builtin_unreachable();
 }
 
 // Check syscalls
-void LOCATE_FUNC _handle_syscall(uint32_t syscode, uint32_t arg0) {
+// Abort execution/simulation for invalid syscode.
+void LOCATE_FUNC _handle_syscall(uint32_t syscode, uint32_t arg0, uint32_t arg1, uint32_t arg2) {
         switch (syscode) {
         case SYS_EXIT:
                 tohost_exit(arg0);
                 break;
-        default:
-                // Wrong syscode: do nothing
+        case SYS_WRITE: {
+                void       *ptr    = (void *)arg1;
+                size_t      len    = arg2;
+                const void *endptr = ptr + len;
+                volatile int *_stdout = (volatile int *)arg0;
+                while (ptr != endptr)
+                        *_stdout = *(char *)(ptr++);
                 break;
+        }
+        default:
+                // Wrong syscode: abort :)
+                tohost_exit(1);
+                __builtin_unreachable();
         }
 }
 
 // C trap handler
 uintptr_t LOCATE_FUNC handle_trap(uintptr_t cause, uintptr_t epc, uintptr_t regs[32])
 {
-        //printf("[SYSCALL] Weak trap handler: implement your own!\n");
         switch (cause){
         case X_UCALL:
-                _handle_syscall(regs[10], regs[11]);  // x10 = syscode, x11 = first argument
+                _handle_syscall(regs[10], regs[11], regs[12], regs[13]);  // x10 = syscode, x11 = first argument
                 break;
         default:
                 // unimplemented handler. GTFO.
-                tohost_exit(0x2222);
+                tohost_exit(cause);
                 __builtin_unreachable();
         }
         return epc + 4; //WARNING:
 }
 
 // machine code initialization: placeholder
-void __attribute__((weak)) LOCATE_FUNC platform_init() {
-        //printf("[SYSCALL] Weak platform initialization: implement your own!\n");
+void LOCATE_FUNC platform_init() {
+        // TODO: DO SOMETHING!!
 }
 
+// -----------------------------------------------------------------------------
+// read syscall. Does nothing for now.
+ssize_t _read(int file, void *ptr, size_t len) {
+        return 0;
+}
+
+// write syscall.
+ssize_t _write(int file, const void *ptr, size_t len) {
+        // For stdout, file == 1.
+        // Maybe create a map file -> device address/function to perform the requested write (via syscalls)
+        if (file != STDOUT_FILENO)
+                return -1;
+        asm volatile ("move a3, %0;" : : "r" (len));
+        asm volatile ("move a2, %0;" : : "r" (ptr));
+        asm volatile ("li a1, %0" : : "rn" (CONSOLE_BUFFER));
+        asm volatile ("li a0, %0;" : : "I" (SYS_WRITE));
+        asm volatile ("ecall;");
+        return 0;
+}
+
+// close syscall
+ssize_t _close(int file) {
+        return 0;
+}
+
+ssize_t _fstat(int file, struct stat *st) {
+        errno = ENOENT;
+        return -1;
+}
+
+void *_sbrk(ptrdiff_t incr) {
+        extern unsigned char _end[]; // defined by the linker
+        static unsigned long heap_end = 0;
+
+        if (heap_end == 0)
+                heap_end = (long)_end;
+        heap_end += incr;
+        return (void *)(heap_end - incr);
+}
+
+// exit syscall
+void _exit(int code) {
+        // Load syscall code and arguments to a0-aX, and do the call
+        asm volatile ("move a1, a0;"
+                      "li a0, %0;"
+                      "ecall;"
+                      :
+                      : "I" (SYS_EXIT));
+        __builtin_unreachable();
+}
+
+// Taken from picorv32 repository (with some modifications)
+// Copyright (C) 2015  Clifford Wolf <clifford@clifford.at>
+asm (
+        ".section .text;"
+        ".align 2;"
+        UNIMP_FUNC(_open)
+        UNIMP_FUNC(_openat)
+        UNIMP_FUNC(_lseek)
+        UNIMP_FUNC(_stat)
+        UNIMP_FUNC(_lstat)
+        UNIMP_FUNC(_fstatat)
+        UNIMP_FUNC(_isatty)
+        UNIMP_FUNC(_access)
+        UNIMP_FUNC(_faccessat)
+        UNIMP_FUNC(_link)
+        UNIMP_FUNC(_unlink)
+        UNIMP_FUNC(_execve)
+        UNIMP_FUNC(_getpid)
+        UNIMP_FUNC(_fork)
+        UNIMP_FUNC(_kill)
+        UNIMP_FUNC(_wait)
+        UNIMP_FUNC(_times)
+        UNIMP_FUNC(_gettimeofday)
+        UNIMP_FUNC(_ftime)
+        UNIMP_FUNC(_utime)
+        UNIMP_FUNC(_chown)
+        UNIMP_FUNC(_chmod)
+        UNIMP_FUNC(_chdir)
+        UNIMP_FUNC(_getcwd)
+        UNIMP_FUNC(_sysconf)
+        "j unimplemented_syscall;"
+        );
+
+void unimplemented_syscall() {
+        // TODO: print error
+        _exit(-1);
+        __builtin_unreachable();
+}
+
+// -----------------------------------------------------------------------------
 // placeholder.
 int __attribute__((weak)) main(int argc, char* argv[]){
         //printf("[SYSCALL] Weak main: implement your own!\n");
