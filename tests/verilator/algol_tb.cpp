@@ -22,6 +22,7 @@
 #include <verilated.h>
 #include "VAlgol.h"
 #include "wbmemory.h"
+#include "wbconsole.h"
 #include "testbench.h"
 #include "inputparser.h"
 #include "colors.h"
@@ -52,6 +53,10 @@
 #define io_ack_i  m_core->wbm_io_ack_i
 #define io_err_i  m_core->wbm_io_err_i
 
+// Device map
+#define CONSOLE_START 0x80000000u
+#define CONSOLE_END   0x80001000u
+
 // -----------------------------------------------------------------------------
 // The testbench
 class ALGOLTB: public Testbench<VAlgol> {
@@ -59,7 +64,6 @@ public:
         // -----------------------------------------------------------------------------
         // Testbench constructor
         ALGOLTB(double frequency, double timescale=1e-9): Testbench(frequency, timescale) {}
-
         // -----------------------------------------------------------------------------
         // Print exit message
         uint32_t PrintExitMessage(const bool ok, const uint32_t time, const unsigned long max_time) const {
@@ -76,7 +80,6 @@ public:
                 }
                 return exit_code;
         }
-
         // -----------------------------------------------------------------------------
         // check for syscall
         bool CheckTOHOST(const bool benchmark, WBMEMORY &memory, bool &ok) const {
@@ -120,7 +123,21 @@ public:
                         if (addr_masked + 3 < data_addr + size) printf("%c", (data >> 24) & 0xff);
                 }
         }
+        // -----------------------------------------------------------------------------
+        // Timeout for I/O devices
+        void IOtimeout() {
+                const uint32_t MAX_TIMEOUT  = 256;
+                static uint32_t timeout_cnt = 0;
 
+                if (io_cyc_o and io_stb_o) {
+                        if (timeout_cnt++ == MAX_TIMEOUT and not (io_ack_i or io_err_i)) {
+                                io_err_i = true;
+                                fprintf(stderr, ANSI_COLOR_RED "[ALGOLTB] Access to unimplemented address: 0x%08X. Timeout: %d\n" ANSI_COLOR_RESET, io_addr_o, timeout_cnt);
+                        }
+                } else {
+                        timeout_cnt = 0;
+                }
+        }
         // -----------------------------------------------------------------------------
         // Run the CPU model.
         int SimulateCore(const std::string &progfile, const std::string &bootfile, const unsigned long max_time=1000000L, const bool benchmark=false) {
@@ -138,6 +155,10 @@ public:
                         memory.Load(bootfile);
                 }
                 memory.Load(progfile);
+                // Create devices
+                const uint32_t STDOUTSTART = 0x80000000;
+                const std::unique_ptr<WBCONSOLE> stdout_ptr(new WBCONSOLE(STDOUTSTART));
+                WBCONSOLE &console = *stdout_ptr;
 
                 // initial values for unused ports
                 m_core->xinterrupts_i = 0;
@@ -146,10 +167,19 @@ public:
                 printf(ANSI_COLOR_YELLOW "Executing file: %s\n" ANSI_COLOR_RESET, progfile.c_str());
                 for (; getTime() < max_time;) {
                         Tick();
+                        // -------------------------------------------
+                        // R/W to memory
                         auto mem1bad = memory(mem_addr_o, mem_dat_o, mem_sel_o, mem_cyc_o, mem_stb_o, mem_we_o,
                                               mem_dat_i, mem_ack_i, mem_err_i);
                         if (mem1bad or CheckTOHOST(benchmark, memory, ok))
                                 break;
+                        // -------------------------------------------
+                        // Simulate devices.
+                        io_ack_i = false;  // set default state for ack/err
+                        io_err_i = false;
+                        console(io_addr_o, io_dat_o, io_sel_o, io_cyc_o, io_stb_o, io_we_o,
+                                io_dat_i, io_ack_i, io_err_i);
+                        IOtimeout();
                 }
                 Tick();
                 return PrintExitMessage(ok, getTime(), max_time);
