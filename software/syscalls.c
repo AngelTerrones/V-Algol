@@ -28,7 +28,7 @@
 #define X_INST_ACCESS_FAULT    1
 #define X_ILLEGAL_INSTRUCTION  2
 #define X_BREAKPOINT           3
-#define X_LOAD_ADDR_MISA       4
+#define X_LOAD_ADDRESS_MISA    4
 #define X_LOAD_ACCESS_FAULT    5
 #define X_STORE_ADDRESS_MISA   6
 #define X_STORE_ACCESS_FAULT   7
@@ -45,11 +45,11 @@
 #define I_USER_X_INT           ((1 << 31) | 8)
 #define I_SUPERVISOR_X_INT     ((1 << 31) | 9)
 #define I_MACHINE_X_INT        ((1 << 31) | 11)
-// syscalls definition
+// syscalls definition (needs machine priviledge)
 #define SYS_EXIT  0
 #define SYS_READ  1
 #define SYS_WRITE 2
-// Console device address
+// Output device address
 #define CONSOLE_BUFFER 0x80000000
 #define CONSOLE_FLUSH  0x80000004
 // Code placement
@@ -75,16 +75,20 @@ void LOCATE_FUNC _handle_syscall(uint32_t syscode, uint32_t arg0, uint32_t arg1,
                 tohost_exit(arg0);
                 break;
         case SYS_WRITE: {
-                void       *ptr    = (void *)arg1;
-                size_t      len    = arg2;
-                const void *endptr = ptr + len;
+                const void   *ptr     = (void *)arg1;
+                const size_t  len     = arg2;
+                const void   *endptr  = ptr + len;
                 volatile int *_stdout = (volatile int *)arg0;
                 while (ptr != endptr)
                         *_stdout = *(char *)(ptr++);
                 break;
         }
+        case SYS_READ:
+                printf("Read syscode is not implemented.\n");
+                break;
         default:
                 // Wrong syscode: abort :)
+                printf("Unimplemented syscode. Abort\n");
                 tohost_exit(1);
                 __builtin_unreachable();
         }
@@ -94,11 +98,33 @@ void LOCATE_FUNC _handle_syscall(uint32_t syscode, uint32_t arg0, uint32_t arg1,
 uintptr_t LOCATE_FUNC handle_trap(uintptr_t cause, uintptr_t epc, uintptr_t regs[32])
 {
         switch (cause){
+        case X_INST_ADDRESS_MISA:
+                printf("Instruction fetch misaligned.\n");
+                break;
+        case X_INST_ACCESS_FAULT:
+                printf("Instruction fetch error.\n");
+                break;
+        case X_ILLEGAL_INSTRUCTION:
+                printf("Illegal instruction.\n");
+                break;
+        case X_LOAD_ADDRESS_MISA:
+                printf("Load address misaligned.\n");
+                break;
+        case X_LOAD_ACCESS_FAULT:
+                printf("Load access error.\n");
+                break;
+        case X_STORE_ADDRESS_MISA:
+                printf("Store address misaligned.\n");
+                break;
+        case X_STORE_ACCESS_FAULT:
+                printf("Store access error.\n");
+                break;
         case X_UCALL:
                 _handle_syscall(regs[10], regs[11], regs[12], regs[13]);  // x10 = syscode, x11 = first argument
                 break;
         default:
                 // unimplemented handler. GTFO.
+                printf("Unimplemented handler.\n");
                 tohost_exit(cause);
                 __builtin_unreachable();
         }
@@ -111,16 +137,21 @@ void LOCATE_FUNC platform_init() {
 }
 
 // -----------------------------------------------------------------------------
+// Syscalls: Taken from the picorv32 repository (with some modifications)
+// Copyright (C) 2015  Clifford Wolf <clifford@clifford.at>
+
 // read syscall. Does nothing for now.
+// TODO: implement for input device
 ssize_t _read(int file, void *ptr, size_t len) {
         return 0;
 }
 
 // write syscall.
 ssize_t _write(int file, const void *ptr, size_t len) {
-        // For stdout, file == 1.
-        // Maybe create a map file -> device address/function to perform the requested write (via syscalls)
-        if (file != STDOUT_FILENO)
+        // Writes to STDOUT and STDERR: to output device.
+        // everything else: ignore.
+        // Other devices: Use a custom write function.
+        if (file != STDOUT_FILENO && file != STDERR_FILENO)
                 return -1;
         asm volatile ("move a3, %0;" : : "r" (len));
         asm volatile ("move a2, %0;" : : "r" (ptr));
@@ -135,11 +166,13 @@ ssize_t _close(int file) {
         return 0;
 }
 
+//
 ssize_t _fstat(int file, struct stat *st) {
         errno = ENOENT;
         return -1;
 }
 
+//
 void *_sbrk(ptrdiff_t incr) {
         extern unsigned char _end[]; // defined by the linker
         static unsigned long heap_end = 0;
@@ -161,8 +194,6 @@ void _exit(int code) {
         __builtin_unreachable();
 }
 
-// Taken from picorv32 repository (with some modifications)
-// Copyright (C) 2015  Clifford Wolf <clifford@clifford.at>
 asm (
         ".section .text;"
         ".align 2;"
@@ -195,7 +226,7 @@ asm (
         );
 
 void unimplemented_syscall() {
-        // TODO: print error
+        printf("Unimplemented syscall! Abort()\n");
         _exit(-1);
         __builtin_unreachable();
 }
@@ -203,13 +234,12 @@ void unimplemented_syscall() {
 // -----------------------------------------------------------------------------
 // placeholder.
 int __attribute__((weak)) main(int argc, char* argv[]){
-        //printf("[SYSCALL] Weak main: implement your own!\n");
+        printf("[SYSCALL] Weak main: implement your own!\n");
         return -1;
 }
 
 // configure the call to main()
 void _init() {
-        // TODO: do something else?
         int rcode = main(0, 0);
         _exit(rcode);
 }
