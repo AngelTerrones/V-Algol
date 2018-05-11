@@ -86,12 +86,10 @@ _start:
     sll sp, sp, STKSHIFT
     add sp, sp, tp
 
-    # platform initialization (drivers), and execute user code (main)
-    call platform_init
-    # go in user mode to _init function
-    la   t0, _init
-    csrw mepc, t0
-    mret
+    # execute user code (main)
+    call _init
+    # trap in case of error
+1:  j 1b
 
     .align 2
 trap_entry:
@@ -134,11 +132,6 @@ trap_entry:
     mv a2, sp
     call handle_trap
     csrw mepc, a0
-
-    # return to the last mode
-    # Remain in M-mode after eret
-    # li t0, MSTATUS_MPP
-    # csrs mstatus, t0
 
     lw x1, 1*4(sp)
     lw x2, 2*4(sp)

@@ -43,7 +43,7 @@ build-core: $(BUILD_DIR)/Algol.exe
 .SECONDARY: $(OBJS)
 
 # Verilator
-$(.VOBJ)/VAlgol__ALL.a: $(BUILD_DIR)/Algol.v
+$(.VOBJ)/VAlgol__ALL.a: Algol/Algol.v
 	@printf "%b" "$(.COM_COLOR)$(.VER_STRING)$(.OBJ_COLOR) $<$(.NO_COLOR)\n"
 	+@$(.VERILATE) $<
 	@printf "%b" "$(.COM_COLOR)$(.COM_STRING)$(.OBJ_COLOR) $(@F)$(.NO_COLOR)\n"

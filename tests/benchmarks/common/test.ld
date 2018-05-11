@@ -22,12 +22,14 @@ SECTIONS
 {
 
   /* text: test code section */
-  . = 0x20000000;
+  . = 0x80000000;
   .text.init : { *(.text.init) }
 
   . = ALIGN(0x1000);
-
+  .tohost : { *(.tohost) }
+  . = ALIGN(0x1000);
   .text : { *(.text) }
+  . = ALIGN(0x1000);
 
   /* data segment */
   .data : { *(.data) }
@@ -61,6 +63,4 @@ SECTIONS
 
   /* End of uninitalized data segement */
   _end = .;
-  . = 0x1FFF0000;
-  .tohost : { *(.tohost) }
 }

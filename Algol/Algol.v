@@ -19,9 +19,9 @@
 `default_nettype none
 `timescale 1 ns / 1 ps
 
-module core #(
+module Algol #(
               parameter [31:0] HART_ID = 0,
-              parameter [31:0] RESET_ADDR = 32'h0000_0000,
+              parameter [31:0] RESET_ADDR = 32'h8000_0000,
               parameter [0:0]  ENABLE_COUNTERS = 1
               )(
                 input wire        clk_i,
@@ -41,7 +41,6 @@ module core #(
                 input wire        xint_mtip_i,
                 input wire        xint_msip_i
                 );
-    // BEGIN MYHDL TEMPLATE
     // ---------------------------------------------------------------------
     // State machine
     localparam cpu_state_reset   = 10'b0000000001;
@@ -786,14 +785,11 @@ module core #(
         // verilator lint_on WIDTH
     end
     // ---------------------------------------------------------------------
-    // Machine mode: access the whole address space (4GB). First 512 MB for priviledge code.
-    // Upper 2GB for I/O section.
-    // User mode: access from 0x20000000 to 0x7FFFFFFF (1.5 GB)
     always @(*) begin
         (* parallel_case *)
         case (cpu_state)
             cpu_state_fetch: begin
-                illegal_mem  = priv_mode == PRIV_U && (pc[31] || (pc[31:29] == 3'b0));
+                illegal_mem  = 0;
                 wbm_addr_o   = pc;
                 wbm_dat_o    = 32'bx;
                 wbm_sel_o    = 4'b0;
@@ -802,7 +798,7 @@ module core #(
                 wbm_stb_o    = pc[1:0] == 0 && !illegal_mem;
             end
             cpu_state_ld: begin
-                illegal_mem  = priv_mode == PRIV_U && (ld_addr[31] || (ld_addr[31:29] == 3'b0));
+                illegal_mem  = 0;
                 wbm_addr_o   = ld_addr;
                 wbm_dat_o    = 32'bx;
                 wbm_sel_o    = 4'b0;
@@ -811,7 +807,7 @@ module core #(
                 wbm_stb_o    = !illegal_mem;
             end
             cpu_state_st: begin
-                illegal_mem  = priv_mode == PRIV_U && (st_addr[31] || (st_addr[31:29] == 3'b0));
+                illegal_mem  = 0;
                 wbm_addr_o   = st_addr;
                 wbm_dat_o    = mdat_o;
                 wbm_sel_o    = msel_o;
@@ -1022,6 +1018,5 @@ module core #(
             |{is_instret, is_instreth}:             csr_dat_o <= is_instret ? instret[31: 0] : instret[63: 32];
         endcase
     end
-    // END MYHDL TEMPLATE
 endmodule
 // EOF

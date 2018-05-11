@@ -25,18 +25,14 @@ ENTRY(_start)
 SECTIONS
 {
     /*-----------------------------------------------------------------*/
-    /* Machine region */
-    . = 0x1C000000;
+    . = 0x80000000;
     .text.init : { *(.text.init) }
     . = ALIGN(0x1000);
-    .text.mcode : { *(.text.mcode)}
-    /* TOHOST/FROMHOST region inside the machine zone */
-    . = 0x1FFF0000;
     .tohost : { *(.tohost) }
-    /*-----------------------------------------------------------------*/
-    /* User region */
-    . = 0x20000000;
+    . = ALIGN(0x1000);
     .text : { *(.text) }
+    . = ALIGN(0x1000);
+    /*-----------------------------------------------------------------*/
     /* data segment */
     .data : { *(.data) }
     .sdata : {

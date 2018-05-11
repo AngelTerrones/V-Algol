@@ -57,18 +57,17 @@ void WBCONSOLE::operator()(const uint32_t wbs_addr_i, const uint32_t wbs_dat_i, 
         if (!(wbs_cyc_i && wbs_stb_i))
                 return;
         // check memory range. This device have a asigned size of DEVICESZ bytes
-        if (wbs_addr_i < m_base_addr or wbs_addr_i > m_base_addr + DEVICESZ) {
-                fprintf(stderr, ANSI_COLOR_RED "[WBCONSOLE] Invalid bus access: 0x%08x\n" ANSI_COLOR_RESET, wbs_addr_i);
+        if (wbs_addr_i < m_base_addr or wbs_addr_i > m_base_addr + DEVICESZ)
                 return;
-        }
+
         // Default state for output port
         wbs_data_o = 0x0badf00d;
         wbs_ack_o  = 0;
         wbs_err_o  = 0;
-
+        //
         char value = wbs_dat_i & 0x000000FF;
         bool flush = false;
-
+        // access device
         if (m_delay_cnt++ == 1) {
                 switch (addr) {
                 case 0:

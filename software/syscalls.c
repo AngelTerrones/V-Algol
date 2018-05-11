@@ -45,15 +45,10 @@
 #define I_USER_X_INT           ((1 << 31) | 8)
 #define I_SUPERVISOR_X_INT     ((1 << 31) | 9)
 #define I_MACHINE_X_INT        ((1 << 31) | 11)
-// syscalls definition (needs machine priviledge)
-#define SYS_EXIT  0
-#define SYS_READ  1
-#define SYS_WRITE 2
 // Output device address
-#define CONSOLE_BUFFER 0x80000000
-#define CONSOLE_FLUSH  0x80000004
+#define CONSOLE_BUFFER 0x10000000
+#define CONSOLE_FLUSH  0x10000004
 // Code placement
-#define LOCATE_FUNC __attribute__((__section__(".text.mcode")))
 #define UNIMP_FUNC(__f) ".globl " #__f "\n.type " #__f ", @function\n" #__f ":\n"
 
 // Private (machine) variables.
@@ -61,42 +56,16 @@ extern volatile uint64_t tohost;
 
 // -----------------------------------------------------------------------------
 // for simulation purposes: write to tohost address.
-void LOCATE_FUNC tohost_exit(uintptr_t code) {
+void tohost_exit(uintptr_t code) {
         tohost = (code << 1) | 1;
         while(1);
         __builtin_unreachable();
 }
 
-// Check syscalls
-// Abort execution/simulation for invalid syscode.
-void LOCATE_FUNC _handle_syscall(uint32_t syscode, uint32_t arg0, uint32_t arg1, uint32_t arg2) {
-        switch (syscode) {
-        case SYS_EXIT:
-                tohost_exit(arg0);
-                break;
-        case SYS_WRITE: {
-                const void   *ptr     = (void *)arg1;
-                const size_t  len     = arg2;
-                const void   *endptr  = ptr + len;
-                volatile int *_stdout = (volatile int *)arg0;
-                while (ptr != endptr)
-                        *_stdout = *(char *)(ptr++);
-                break;
-        }
-        case SYS_READ:
-                printf("Read syscode is not implemented.\n");
-                break;
-        default:
-                // Wrong syscode: abort :)
-                printf("Unimplemented syscode. Abort\n");
-                tohost_exit(1);
-                __builtin_unreachable();
-        }
-}
-
 // C trap handler
-uintptr_t LOCATE_FUNC handle_trap(uintptr_t cause, uintptr_t epc, uintptr_t regs[32])
+uintptr_t handle_trap(uintptr_t cause, uintptr_t epc, uintptr_t regs[32])
 {
+        // TODO: improve trap handler
         switch (cause){
         case X_INST_ADDRESS_MISA:
                 printf("Instruction fetch misaligned.\n");
@@ -120,20 +89,15 @@ uintptr_t LOCATE_FUNC handle_trap(uintptr_t cause, uintptr_t epc, uintptr_t regs
                 printf("Store access error.\n");
                 break;
         case X_UCALL:
-                _handle_syscall(regs[10], regs[11], regs[12], regs[13]);  // x10 = syscode, x11 = first argument
+                printf("Environmental call");
                 break;
         default:
                 // unimplemented handler. GTFO.
                 printf("Unimplemented handler.\n");
-                tohost_exit(cause);
-                __builtin_unreachable();
         }
-        return epc + 4; //WARNING:
-}
-
-// machine code initialization: placeholder
-void LOCATE_FUNC platform_init() {
-        // TODO: DO SOMETHING!!
+        tohost_exit(cause);
+        __builtin_unreachable();
+        return epc + 4; //WARNING: Will never reach (for now)
 }
 
 // -----------------------------------------------------------------------------
@@ -150,15 +114,13 @@ ssize_t _read(int file, void *ptr, size_t len) {
 ssize_t _write(int file, const void *ptr, size_t len) {
         // Writes to STDOUT and STDERR: to output device.
         // everything else: ignore.
-        // Other devices: Use a custom write function.
+        // Other devices: Use a custom write function =)
         if (file != STDOUT_FILENO && file != STDERR_FILENO)
                 return -1;
-        asm volatile ("move a3, %0;" : : "r" (len));
-        asm volatile ("move a2, %0;" : : "r" (ptr));
-        asm volatile ("li a1, %0" : : "rn" (CONSOLE_BUFFER));
-        asm volatile ("li a0, %0;" : : "I" (SYS_WRITE));
-        asm volatile ("ecall;");
-        return 0;
+        const void *eptr = ptr + len;
+        while(ptr != eptr)
+                *(volatile int*)CONSOLE_BUFFER = *(char *)(ptr++);
+        return len;
 }
 
 // close syscall
@@ -185,12 +147,7 @@ void *_sbrk(ptrdiff_t incr) {
 
 // exit syscall
 void _exit(int code) {
-        // Load syscall code and arguments to a0-aX, and do the call
-        asm volatile ("move a1, a0;"
-                      "li a0, %0;"
-                      "ecall;"
-                      :
-                      : "I" (SYS_EXIT));
+        tohost_exit(code);
         __builtin_unreachable();
 }
 
@@ -242,4 +199,5 @@ int __attribute__((weak)) main(int argc, char* argv[]){
 void _init() {
         int rcode = main(0, 0);
         _exit(rcode);
+        __builtin_unreachable();
 }

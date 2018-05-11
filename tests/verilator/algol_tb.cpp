@@ -27,35 +27,31 @@
 #include "inputparser.h"
 #include "colors.h"
 
+// Use short names for the core signals
+#define wbm_addr_o m_core->wbm_addr_o
+#define wbm_dat_o  m_core->wbm_dat_o
+#define wbm_sel_o  m_core->wbm_sel_o
+#define wbm_cyc_o  m_core->wbm_cyc_o
+#define wbm_stb_o  m_core->wbm_stb_o
+#define wbm_we_o   m_core->wbm_we_o
+#define wbm_dat_i  m_core->wbm_dat_i
+#define wbm_ack_i  m_core->wbm_ack_i
+#define wbm_err_i  m_core->wbm_err_i
+#define xint_meip  m_core->xint_meip_i
+#define xint_mtip  m_core->xint_mtip_i
+#define xint_msip  m_core->xint_msip_i
+
+// Define parameters for RAM
+#define MEMSTART 0x80000000u    // Initial address
+#define MEMSZ    0x08000000u    // size: 128 MB
+
 // syscall (benchmarks)
 #define SYSCALL  64
-#define TOHOST   0x1FFF0000u
-#define FROMHOST 0x1FFF0040u
+#define TOHOST   0x80001000u  // This 'section' is aligned to 4KB to the previous section: init code.
+#define FROMHOST 0x80001040u
 
-// Use short names for the core signals
-#define mem_addr_o m_core->wbm_mem_addr_o
-#define mem_dat_o  m_core->wbm_mem_dat_o
-#define mem_sel_o  m_core->wbm_mem_sel_o
-#define mem_cyc_o  m_core->wbm_mem_cyc_o
-#define mem_stb_o  m_core->wbm_mem_stb_o
-#define mem_we_o   m_core->wbm_mem_we_o
-#define mem_dat_i  m_core->wbm_mem_dat_i
-#define mem_ack_i  m_core->wbm_mem_ack_i
-#define mem_err_i  m_core->wbm_mem_err_i
-
-#define io_addr_o m_core->wbm_io_addr_o
-#define io_dat_o  m_core->wbm_io_dat_o
-#define io_sel_o  m_core->wbm_io_sel_o
-#define io_cyc_o  m_core->wbm_io_cyc_o
-#define io_stb_o  m_core->wbm_io_stb_o
-#define io_we_o   m_core->wbm_io_we_o
-#define io_dat_i  m_core->wbm_io_dat_i
-#define io_ack_i  m_core->wbm_io_ack_i
-#define io_err_i  m_core->wbm_io_err_i
-
-// Device map
-#define CONSOLE_START 0x80000000u
-#define CONSOLE_END   0x80001000u
+// Device address list
+#define CONSOLE_START 0x10000000u
 
 // -----------------------------------------------------------------------------
 // The testbench
@@ -72,7 +68,7 @@ public:
                         printf(ANSI_COLOR_GREEN "Simulation done. Time %u\n" ANSI_COLOR_RESET, time);
                         exit_code = 0;
                 } else if (time < max_time) {
-                        printf(ANSI_COLOR_RED "Simulation error. Exit code: %08X. Time: %u\n" ANSI_COLOR_RESET, mem_dat_o, time);
+                        printf(ANSI_COLOR_RED "Simulation error. Exit code: %08X. Time: %u\n" ANSI_COLOR_RESET, wbm_dat_o, time);
                         exit_code = 1;
                 } else {
                         printf(ANSI_COLOR_MAGENTA "Simulation error. Timeout. Time: %u\n" ANSI_COLOR_RESET, time);
@@ -82,26 +78,23 @@ public:
         }
         // -----------------------------------------------------------------------------
         // check for syscall
-        bool CheckTOHOST(const bool benchmark, WBMEMORY &memory, bool &ok) const {
-                // tohost should live in RAM1: use mem_1 port.
-                const bool transaction = mem_cyc_o and mem_stb_o;
-                const bool isTH        = mem_addr_o == TOHOST;
-                bool       _exit       = false;
-                if (isTH and transaction and mem_we_o and mem_ack_i) {
-                        ok    = mem_dat_o == 1;
-                        _exit = ok;
-                        if (!ok) {
-                                _exit = !benchmark;
-                                if (benchmark) {
-                                        // check for syscall
-                                        const uint32_t data0 = mem_dat_o >> 2; // byte2word
-                                        const uint32_t data1 = data0 + 2;                    // data is 64-bit aligned.
-                                        if (memory[data0] == SYSCALL and memory[data1] == 1) {
-                                                memory[FROMHOST >> 2] = 1;
-                                                SyscallPrint(memory, data0);
-                                        } else {
-                                                _exit = true;
-                                        }
+        bool CheckTOHOST(WBMEMORY &memory, bool &ok) const {
+                // Check first for TH == 1. For benchmarks, is impossible to be a valid address for syscalls
+                // because it must be a pointer to valid memory, and 0x01 is not valid memory for this testbench:
+                // Simulation memory is in the upper 2GB region.
+                const bool isTHWrite = wbm_cyc_o and wbm_stb_o and (wbm_addr_o == TOHOST) and wbm_we_o and wbm_ack_i;
+                bool       _exit     = false;
+                if (isTHWrite) {
+                        _exit = wbm_dat_o == 1;
+                        ok    = _exit;
+                        if (not _exit) {
+                                const uint32_t data0 = wbm_dat_o >> 2; // byte2word
+                                const uint32_t data1 = data0 + 2;      // data is 64-bit aligned.
+                                if (memory[data0] == SYSCALL and memory[data1] == 1) {
+                                        memory[FROMHOST >> 2] = 1;
+                                        SyscallPrint(memory, data0);
+                                } else {
+                                        _exit = true;
                                 }
                         }
                 }
@@ -129,10 +122,10 @@ public:
                 const uint32_t MAX_TIMEOUT  = 256;
                 static uint32_t timeout_cnt = 0;
 
-                if (io_cyc_o and io_stb_o) {
-                        if (timeout_cnt++ == MAX_TIMEOUT and not (io_ack_i or io_err_i)) {
-                                io_err_i = true;
-                                fprintf(stderr, ANSI_COLOR_RED "[ALGOLTB] Access to unimplemented address: 0x%08X. Timeout: %d\n" ANSI_COLOR_RESET, io_addr_o, timeout_cnt);
+                if (wbm_cyc_o and wbm_stb_o) {
+                        if (timeout_cnt++ == MAX_TIMEOUT and not (wbm_ack_i or wbm_err_i)) {
+                                wbm_err_i = true;
+                                fprintf(stderr, ANSI_COLOR_RED "[ALGOLTB] Access to unimplemented address: 0x%08X. Timeout: %d\n" ANSI_COLOR_RESET, wbm_addr_o, timeout_cnt);
                         }
                 } else {
                         timeout_cnt = 0;
@@ -140,45 +133,34 @@ public:
         }
         // -----------------------------------------------------------------------------
         // Run the CPU model.
-        int SimulateCore(const std::string &progfile, const std::string &bootfile, const unsigned long max_time=1000000L, const bool benchmark=false) {
-                /*
-                  This assumes a simulation memory of 128MB, with 64MB for Mregion, and 64MB for Uregion.
-                  The boot address, in *.ini file must be the physical address of the 64MB Mregion, in this
-                  case, 0x1C000000 (448 MB)
-                 */
-                const uint32_t MEMSZ    = 0x08000000; // 128 MB
-                const uint32_t MEMSTART = 0x1C000000; // 448 MB
+        int SimulateCore(const std::string &progfile, const unsigned long max_time=1000000L) {
                 const std::unique_ptr<WBMEMORY> memory_ptr(new WBMEMORY(MEMSTART, MEMSZ >> 2));
                 WBMEMORY &memory = *memory_ptr;
-                if (!bootfile.empty()){
-                        printf(ANSI_COLOR_YELLOW "Loading bootstrap: %s\n" ANSI_COLOR_RESET, bootfile.c_str());
-                        memory.Load(bootfile);
-                }
                 memory.Load(progfile);
                 // Create devices
-                const uint32_t STDOUTSTART = 0x80000000;
-                const std::unique_ptr<WBCONSOLE> stdout_ptr(new WBCONSOLE(STDOUTSTART));
+                const std::unique_ptr<WBCONSOLE> stdout_ptr(new WBCONSOLE(CONSOLE_START));
                 WBCONSOLE &console = *stdout_ptr;
 
                 // initial values for unused ports
-                m_core->xinterrupts_i = 0;
+                xint_meip = false;
+                xint_msip = false;
+                xint_mtip = false;
 
                 bool ok = false;
                 printf(ANSI_COLOR_YELLOW "Executing file: %s\n" ANSI_COLOR_RESET, progfile.c_str());
                 for (; getTime() < max_time;) {
                         Tick();
-                        // -------------------------------------------
-                        // R/W to memory
-                        auto mem1bad = memory(mem_addr_o, mem_dat_o, mem_sel_o, mem_cyc_o, mem_stb_o, mem_we_o,
-                                              mem_dat_i, mem_ack_i, mem_err_i);
-                        if (mem1bad or CheckTOHOST(benchmark, memory, ok))
+                        wbm_ack_i = false;  // set default state for ack/err
+                        wbm_err_i = false;
+                        // simulate memory
+                        memory(wbm_addr_o, wbm_dat_o, wbm_sel_o, wbm_cyc_o, wbm_stb_o, wbm_we_o,
+                               wbm_dat_i, wbm_ack_i, wbm_err_i);
+                        if (CheckTOHOST(memory, ok)) // check for tohost, before device simulation
                                 break;
-                        // -------------------------------------------
-                        // Simulate devices.
-                        io_ack_i = false;  // set default state for ack/err
-                        io_err_i = false;
-                        console(io_addr_o, io_dat_o, io_sel_o, io_cyc_o, io_stb_o, io_we_o,
-                                io_dat_i, io_ack_i, io_err_i);
+                        // simulate devices
+                        console(wbm_addr_o, wbm_dat_o, wbm_sel_o, wbm_cyc_o, wbm_stb_o, wbm_we_o,
+                                wbm_dat_i, wbm_ack_i, wbm_err_i);
+                        // timeout, in case of unknown device.
                         IOtimeout();
                 }
                 Tick();
@@ -191,8 +173,8 @@ public:
 void PrintHelp() {
         printf("Algol Verilator model.\n");
         printf("Usage:\n");
-        printf("\tAlgol.exe --frequency <core frequency> --timeout <max simulation time> --file <filename> [--boot <filename>]"
-               "[--benchmark] [--trace] [--trace-directory <trace directory>]\n");
+        printf("\tAlgol.exe --frequency <core frequency> --timeout <max simulation time> --file <filename> "
+               "[--trace] [--trace-directory <trace directory>]\n");
 }
 
 // -----------------------------------------------------------------------------
@@ -200,11 +182,9 @@ void PrintHelp() {
 int main(int argc, char **argv) {
         INPUTPARSER input(argc, argv);
         const std::string &s_progfile  = input.GetCmdOption("--file");
-        const std::string &s_bootfile  = input.GetCmdOption("--boot");
         const std::string &s_frequency = input.GetCmdOption("--frequency");
         const std::string &s_timeout   = input.GetCmdOption("--timeout");
         const std::string &s_trace_dir = input.GetCmdOption("--trace-directory");
-        const bool benchmark           = input.CmdOptionExist("--benchmark");
         const bool trace               = input.CmdOptionExist("--trace");
         const bool help                = input.CmdOptionExist("--help");
 
@@ -223,7 +203,7 @@ int main(int argc, char **argv) {
                 tb->OpenTrace(vcdfile.data());
         }
         tb->Reset();
-        int result = tb->SimulateCore(s_progfile, s_bootfile, timeout, benchmark);
+        int result = tb->SimulateCore(s_progfile, timeout);
 
         return result;
 }

@@ -78,27 +78,22 @@ void WBMEMORY::Load(const std::string &filename) {
 // -----------------------------------------------------------------------------
 // Execute model: read/write operations.
 // Return FALSE for normal operation, TRUE for critical error: out-of-bound access
-bool WBMEMORY::operator()(const uint32_t wbs_addr_i, const uint32_t wbs_dat_i, const uint8_t wbs_sel_i,
+void WBMEMORY::operator()(const uint32_t wbs_addr_i, const uint32_t wbs_dat_i, const uint8_t wbs_sel_i,
                           const uint8_t wbs_cyc_i, const uint8_t wbs_stb_i, const uint8_t wbs_we_i,
                           uint32_t &wbs_data_o, uint8_t &wbs_ack_o, uint8_t &wbs_err_o) {
         auto addr     = ((wbs_addr_i - m_base_addr) >> 2) & m_mask; // Byte address to word address.
         auto mem_size = m_size << 2;
-
+        // check for access
+        if (!(wbs_cyc_i && wbs_stb_i))
+                return;
+        // check if the address is out of memory range.
+        if (wbs_addr_i < m_base_addr || wbs_addr_i >= m_base_addr + mem_size)
+                return;
         // Default state for memory
         wbs_data_o = 0xdeadf00d;
         wbs_ack_o  = 0;
         wbs_err_o  = 0;
-
-        // check for access
-        if (!(wbs_cyc_i && wbs_stb_i))
-                return false;
-
-        // check if the address is out of memory range.
-        if (wbs_addr_i < m_base_addr || wbs_addr_i >= m_base_addr + mem_size) {
-                fprintf(stderr, ANSI_COLOR_RED "[WBMEMORY] Invalid bus access: 0x%08x\n" ANSI_COLOR_RESET, wbs_addr_i);
-                return true;
-        }
-        // bus access
+        // access memory
         if (m_delay_cnt++ == m_delay) {
                 if (wbs_we_i) {
                         auto b0 = (wbs_sel_i & 0x01 ? wbs_dat_i : (*m_memory)[addr]) & 0x000000ff;
@@ -112,7 +107,6 @@ bool WBMEMORY::operator()(const uint32_t wbs_addr_i, const uint32_t wbs_dat_i, c
                 wbs_err_o   = 0;
                 m_delay_cnt = 0;
         }
-        return false;
 }
 
 // -----------------------------------------------------------------------------
