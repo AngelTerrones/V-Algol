@@ -12,8 +12,7 @@ Algol is free and open hardware licensed under the [MIT license](https://en.wiki
 
 - [ALGOL - A RISC-V CPU system](#algol---a-risc-v-cpu-system)
     - [Dependencies](#dependencies)
-    - [Processor details](#processor-details)
-    - [Platform details](#platform-details)
+    - [CPU core details](#cpu-core-details)
     - [Software Details](#software-details)
     - [Directory Layout](#directory-layout)
     - [Validation](#validation)
@@ -27,7 +26,6 @@ Algol is free and open hardware licensed under the [MIT license](https://en.wiki
 
 Dependencies
 ------------
-- Python3 and [Atik](https://github.com/AngelTerrones/Atik).
 - [Verilator](https://www.veripool.org/wiki/verilator) for simulation.
 - A RISC-V toolchain, to compile the validation tests and benchmarks.
 
@@ -36,16 +34,7 @@ CPU core details
 - RISC-V RV32I ISA.
 - Support for the Machine and User [privilege modes](https://riscv.org/specifications/privileged-isa/). Current version: v1.10.
 - Multi-cycle datapath.
-- Machine mode have complete access to the whole address space. User mode is restricted to the first 2GB memory region: 0x00000000 to 0x7FFFFFFF.
 - Single memory port using the [Wishbone B4](https://www.ohwr.org/attachments/179/wbspec_b4.pdf) Interface.
-
-Platform details
-----------------
-- Basic interrupt controller based in the PLIC specification described in the [Priviledged Architecture](https://riscv.org/specifications/privileged-isa/) manual.
-- Plaform control registers (PCR) implementing the system timer and the software interrupts
-- Basic [Wishbone B4](https://www.ohwr.org/attachments/179/wbspec_b4.pdf) bus.
-- Memory port for external memory controller.
-- Memory port for external I/O bus.
 
 Software Details
 ----------------
@@ -57,12 +46,13 @@ Software Details
 Directory Layout
 ----------------
 - `README.md`: This file.
-- `Algol`: Verilog and Python source files for the Algol core system.
+- `Algol`: CPU source file written in Verilog.
 - `documentation`: LaTeX source files for the CPU manuals (TODO).
-- `tests`: Test environment for the bPersei CPU and Algol system.
+- `software`: Support libraries for the CPU, in C.
+- `tests`: Test environment for the CPU.
     - `benchmarks`: Basic benchmarks written in C. Taken from [riscv-tests](http://riscv.org/software-tools/riscv-tests/) (git rev b747a10**).
+    - `extra-tests`: Tests for the support libraries, and external interrupts.
     - `riscv-tests`: Basic instruction-level tests. Taken from [riscv-tests](http://riscv.org/software-tools/riscv-tests/) (git rev b747a10**).
-    - `settings`: Basic CPU configuration files.
     - `verilator`: C++ testbench for the CPU validation.
 
 Validation
@@ -71,22 +61,14 @@ Validation
 The instruction-level tests are from the [riscv-tests](http://riscv.org/software-tools/riscv-tests/) repository.
 The original makefile has been modified to use the toolchain from [GNU MCU Eclipse](https://gnu-mcu-eclipse.github.io/).
 
-To compile the RISC-V instruction-level tests:
+To compile the RISC-V instruction-level tests, benchmarks and extra-tests:
 
 > $ make compile-tests
-
-To compile the RISC-V benchmarks:
-
-> $ make compile-benchmarks
 
 ### Validate cores
 To validate the cores using the [validation suit](http://riscv.org/software-tools/riscv-tests/) (No VCD dumps):
 
 > $ make run-algol-tests
-
-To run the benchmarks (no test output, no dumps):
-
-> $ make run-algol-benchmarks
 
 To run the model with a single `.elf` file:
 
