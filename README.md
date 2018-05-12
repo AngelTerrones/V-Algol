@@ -32,7 +32,7 @@ Dependencies
 CPU core details
 -----------------
 - RISC-V RV32I ISA.
-- Support for the Machine and User [privilege modes](https://riscv.org/specifications/privileged-isa/). Current version: v1.10.
+- Machine [privilege mode](https://riscv.org/specifications/privileged-isa/). Current version: v1.10.
 - Multi-cycle datapath.
 - Single memory port using the [Wishbone B4](https://www.ohwr.org/attachments/179/wbspec_b4.pdf) Interface.
 
