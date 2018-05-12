@@ -56,10 +56,12 @@
 // -----------------------------------------------------------------------------
 // The testbench
 class ALGOLTB: public Testbench<VAlgol> {
+private:
+        uint32_t m_exitCode;
 public:
         // -----------------------------------------------------------------------------
         // Testbench constructor
-        ALGOLTB(double frequency, double timescale=1e-9): Testbench(frequency, timescale) {}
+        ALGOLTB(double frequency, double timescale=1e-9): Testbench(frequency, timescale), m_exitCode(-1) {}
         // -----------------------------------------------------------------------------
         // Print exit message
         uint32_t PrintExitMessage(const bool ok, const uint32_t time, const unsigned long max_time) const {
@@ -68,7 +70,7 @@ public:
                         printf(ANSI_COLOR_GREEN "Simulation done. Time %u\n" ANSI_COLOR_RESET, time);
                         exit_code = 0;
                 } else if (time < max_time) {
-                        printf(ANSI_COLOR_RED "Simulation error. Exit code: %08X. Time: %u\n" ANSI_COLOR_RESET, wbm_dat_o, time);
+                        printf(ANSI_COLOR_RED "Simulation error. Exit code: %08X. Time: %u\n" ANSI_COLOR_RESET, m_exitCode, time);
                         exit_code = 1;
                 } else {
                         printf(ANSI_COLOR_MAGENTA "Simulation error. Timeout. Time: %u\n" ANSI_COLOR_RESET, time);
@@ -85,8 +87,9 @@ public:
                 const bool isTHWrite = wbm_cyc_o and wbm_stb_o and (wbm_addr_o == TOHOST) and wbm_we_o and wbm_ack_i;
                 bool       _exit     = false;
                 if (isTHWrite) {
-                        _exit = wbm_dat_o == 1;
-                        ok    = _exit;
+                        bool isPtr = (wbm_dat_o - MEMSTART) <= MEMSZ;
+                        _exit      = wbm_dat_o == 1 || not isPtr;
+                        ok         = wbm_dat_o == 1;
                         if (not _exit) {
                                 const uint32_t data0 = wbm_dat_o >> 2; // byte2word
                                 const uint32_t data1 = data0 + 2;      // data is 64-bit aligned.
@@ -155,8 +158,10 @@ public:
                         // simulate memory
                         memory(wbm_addr_o, wbm_dat_o, wbm_sel_o, wbm_cyc_o, wbm_stb_o, wbm_we_o,
                                wbm_dat_i, wbm_ack_i, wbm_err_i);
-                        if (CheckTOHOST(memory, ok)) // check for tohost, before device simulation
+                        if (CheckTOHOST(memory, ok)) {
+                                m_exitCode = wbm_dat_o;
                                 break;
+                        }
                         // simulate devices
                         console(wbm_addr_o, wbm_dat_o, wbm_sel_o, wbm_cyc_o, wbm_stb_o, wbm_we_o,
                                 wbm_dat_i, wbm_ack_i, wbm_err_i);
