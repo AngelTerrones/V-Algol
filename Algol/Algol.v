@@ -535,16 +535,16 @@ module Algol #(
                         shift_out  <= alu_a;
                         shamt      <= alu_b[4:0];
                         shift_busy <= 1;
-                        xshamt      = alu_b[4:0] >= 4 ? 4 : 1;
+                        xshamt      = alu_b[4:0] >= 4 ? 3'h4 : 3'h1;
                     end else if (shamt > 0) begin
-                        xshamt = shamt >= 4 ? 4 : 1;
+                        xshamt = shamt >= 4 ? 3'h4 : 3'h1;
                         (* parallel_case, full_case *)
                         case (1'b1)
                             |{inst_slli, inst_sll}: shift_out <= shift_out << xshamt;
                             |{inst_srli, inst_srl}: shift_out <= shift_out >> xshamt;
                             |{inst_srai, inst_sra}: shift_out <= $signed(shift_out) >>> xshamt;
                         endcase
-                        shamt  <= shamt - (shamt >= 4 ? 4 : 1);
+                        shamt  <= shamt - (shamt >= 4 ? 5'h4 : 5'h1);
                     end else begin
                         shift_busy <= 0;
                         rf_we      <= 1;
