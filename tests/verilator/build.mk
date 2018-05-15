@@ -31,7 +31,7 @@ ifeq ($(GCC7), 1)
 endif
 
 VOBJS := $(.VOBJ)/verilated.o $(.VOBJ)/verilated_vcd_c.o
-SOURCES := algol_tb.cpp wbmemory.cpp aelf.cpp wbconsole.cpp
+SOURCES := algol_tb.cpp wbmemory.cpp aelf.cpp wbconsole.cpp wbdevice.cpp
 OBJS := $(addprefix $(.VOBJ)/, $(subst .cpp,.o,$(SOURCES)))
 
 # ------------------------------------------------------------------------------

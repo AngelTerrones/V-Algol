@@ -23,6 +23,7 @@
 #include "VAlgol.h"
 #include "wbmemory.h"
 #include "wbconsole.h"
+#include "wbdevice.h"
 #include "testbench.h"
 #include "inputparser.h"
 #include "colors.h"
@@ -52,6 +53,7 @@
 
 // Device address list
 #define CONSOLE_START 0x10000000u
+#define DEVINT_START  0x20000000u
 
 // -----------------------------------------------------------------------------
 // The testbench
@@ -143,8 +145,10 @@ public:
                 // Create devices
                 const std::unique_ptr<WBCONSOLE> stdout_ptr(new WBCONSOLE(CONSOLE_START));
                 WBCONSOLE &console = *stdout_ptr;
+                const std::unique_ptr<WBDEVICE> xintdev_ptr(new WBDEVICE(DEVINT_START));
+                WBDEVICE &devint = *xintdev_ptr;
 
-                // initial values for unused ports
+                // initial values
                 xint_meip = false;
                 xint_msip = false;
                 xint_mtip = false;
@@ -165,6 +169,9 @@ public:
                         // simulate devices
                         console(wbm_addr_o, wbm_dat_o, wbm_sel_o, wbm_cyc_o, wbm_stb_o, wbm_we_o,
                                 wbm_dat_i, wbm_ack_i, wbm_err_i);
+                        devint(wbm_addr_o, wbm_dat_o, wbm_sel_o, wbm_cyc_o, wbm_stb_o, wbm_we_o,
+                               wbm_dat_i, wbm_ack_i, wbm_err_i,
+                               xint_meip, xint_mtip, xint_msip);
                         // timeout, in case of unknown device.
                         IOtimeout();
                 }
