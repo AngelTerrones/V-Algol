@@ -16,34 +16,32 @@
  * OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  */
 
-// File: wbmemory.h
-// Wishbone memory device.
+// File: wbdevice.h
+// Wishbone dummy device for testing the external interrupts:
+// - Timer
+// - Software
+// - External
 // 32-bits address & data bus.
 
 #include <vector>
 #include <string>
 #include <cstdint>
 
-#ifndef __WBMEMORY_H
-#define __WBMEMORY_H
+#ifndef __WBDEVICE_H
+#define __WBDEVICE_H
 
-class WBMEMORY {
+class WBDEVICE {
 public:
-        WBMEMORY(const uint32_t base_addr, const uint32_t nwords, const uint32_t delay=1);
-        ~WBMEMORY();
+        WBDEVICE(const uint32_t base_addr);
+        ~WBDEVICE();
 
-        void Load(const std::string &filename);
         void operator()(const uint32_t wbs_addr_i, const uint32_t wbs_dat_i, const uint8_t wbs_sel_i,
                         const uint8_t wbs_cyc_i, const uint8_t wbs_stb_i, const uint8_t wbs_we_i,
-                        uint32_t &wbs_data_o, uint8_t &wbs_ack_o, uint8_t &wbs_err_o);
-        uint32_t &operator[](const uint32_t addr);
+                        uint32_t &wbs_data_o, uint8_t &wbs_ack_o, uint8_t &wbs_err_o,
+                        uint8_t &meip, uint8_t &mtip, uint8_t &msip);
 private:
-        std::vector<uint32_t> *m_memory;
-        uint32_t               m_base_addr;
-        uint32_t               m_size;
-        uint32_t               m_mask;
-        uint32_t               m_delay;
-        uint32_t               m_delay_cnt;
+        uint32_t m_base_addr;
+        uint32_t m_delay_cnt;
 };
 
-#endif // __WBMEMORY_H
+#endif // __WBDUMMY_H

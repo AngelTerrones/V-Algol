@@ -1,7 +1,7 @@
 /*
  * Algol - A RISC-V (RV32I) Processor Core.
  *
- * Copyright (C) 2017 Angel Terrones <angelterrones@gmail.com>
+ * Copyright (C) 2018 Angel Terrones <angelterrones@gmail.com>
  *
  * Permission to use, copy, modify, and/or distribute this software for any
  * purpose with or without fee is hereby granted, provided that the above
@@ -16,21 +16,17 @@
  * OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  */
 
-// File: elf.hpp
+// File: colors.h
 
-#ifndef ELF_H
-#define ELF_H
+#ifndef COLORS_H
+#define COLORS_H
 
-#include <cstdint>
-
-class ELFSECTION {
-public:
-        uint32_t m_start;
-        uint32_t m_len;
-        char     m_data[4];
-};
-
-bool isELF   (const char *filename);
-void elfread (const char *filename, ELFSECTION **&sections);
+#define ANSI_COLOR_RED     "\x1b[31m"
+#define ANSI_COLOR_GREEN   "\x1b[32m"
+#define ANSI_COLOR_YELLOW  "\x1b[33m"
+#define ANSI_COLOR_BLUE    "\x1b[34m"
+#define ANSI_COLOR_MAGENTA "\x1b[35m"
+#define ANSI_COLOR_CYAN    "\x1b[36m"
+#define ANSI_COLOR_RESET   "\x1b[0m"
 
 #endif

@@ -40,7 +40,10 @@ bool isELF(const char *filename) {
         FILE *fp;
         fp = fopen(filename, "rb");
 
-        if (fp == nullptr) return false;
+        if (fp == nullptr) {
+                perror("[OS]");
+                return false;
+        }
         if (fgetc(fp) != 0x7f) return false;
         if (fgetc(fp) != 'E') return false;
         if (fgetc(fp) != 'L') return false;
@@ -52,16 +55,18 @@ bool isELF(const char *filename) {
 
 // -----------------------------------------------------------------------------
 // load the ELF file into a custom data structure.
-void elfread(const char *filename, uint32_t &entry, ELFSECTION **&sections) {
+void elfread(const char *filename, ELFSECTION **&sections) {
         // Initialize library
         if (elf_version(EV_CURRENT) == EV_NONE) {
                 fprintf(stderr, "[ELFLOADER] ELF library initialization failed: %s\n", elf_errmsg(-1));
+                perror("[OS]");
                 exit(EXIT_FAILURE);
         }
         // open filename
         int fd = open(filename, O_RDONLY | O_BINARY, 0);
         if (fd < 0) {
                 fprintf(stderr, "[ELFLOADER] Unable to open file: %s\n", filename);
+                perror("[OS]");
                 exit(EXIT_FAILURE);
         }
         Elf *elf = elf_begin(fd, ELF_C_READ, nullptr);
@@ -127,7 +132,6 @@ void elfread(const char *filename, uint32_t &entry, ELFSECTION **&sections) {
                 exit(EXIT_FAILURE);
         }
         // get executable header
-        entry = ehdr.e_entry; // get the entry point. Is this needed? :/
         size_t n;
         if (elf_getphdrnum(elf, &n) != 0) {
                 fprintf(stderr, "[ELFLOADER] elf_getphdrnum() failed: %s\n", elf_errmsg(-1));
@@ -186,14 +190,16 @@ void elfread(const char *filename, uint32_t &entry, ELFSECTION **&sections) {
                 // read/copy section
                 if (lseek(fd, phdr.p_offset, SEEK_SET) < 0) {
                         fprintf(stderr, "[ELFLOADER] Unable to seek file position 0x%08jx\n", (uintmax_t)phdr.p_offset);
+                        perror("[OS]");
                         exit(EXIT_FAILURE);
                 }
                 if (phdr.p_filesz > phdr.p_memsz) {
-                        fprintf(stderr, "[ELFLOADER][WARNING] filesz > p_memsz\n");
+                        fprintf(stderr, "[ELFLOADER][WARNING] filesz > p_memsz. Ignoring section %zu.\n", i);
                         phdr.p_filesz = 0;
                 }
                 if (read(fd, sections[i]->m_data, phdr.p_filesz) != (int)phdr.p_filesz) {
-                        fprintf(stderr, "[ELFLOADER] Unable to read the entire section.\n");
+                        fprintf(stderr, "[ELFLOADER] Unable to read the entire section: %zu.\n", i);
+                        perror("[OS]");
                         exit(EXIT_FAILURE);
                 }
                 current_offset += phdr.p_memsz + sizeof(ELFSECTION);

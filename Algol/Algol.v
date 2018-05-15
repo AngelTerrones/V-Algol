@@ -19,29 +19,28 @@
 `default_nettype none
 `timescale 1 ns / 1 ps
 
-module bPersei #(
-                 parameter [31:0] HART_ID = 0,
-                 parameter [31:0] RESET_ADDR = 32'h0000_0000,
-                 parameter [0:0]  ENABLE_COUNTERS = 1
-                 )(
-                   input wire        clk_i,
-                   input wire        rst_i,
-                   // wishbone instruction and data port
-                   output reg [31:0] wbm_addr_o,
-                   output reg [31:0] wbm_dat_o,
-                   output reg [ 3:0] wbm_sel_o,
-                   output reg        wbm_cyc_o,
-                   output reg        wbm_stb_o,
-                   output reg        wbm_we_o,
-                   input wire [31:0] wbm_dat_i,
-                   input wire        wbm_ack_i,
-                   input wire        wbm_err_i,
-                   // external interrupts interface
-                   input wire        xint_meip_i,
-                   input wire        xint_mtip_i,
-                   input wire        xint_msip_i
-                   );
-    // BEGIN MYHDL TEMPLATE
+module Algol #(
+              parameter [31:0] HART_ID = 0,
+              parameter [31:0] RESET_ADDR = 32'h8000_0000,
+              parameter [0:0]  ENABLE_COUNTERS = 1
+              )(
+                input wire        clk_i,
+                input wire        rst_i,
+                // wishbone instruction and data port
+                output reg [31:0] wbm_addr_o,
+                output reg [31:0] wbm_dat_o,
+                output reg [ 3:0] wbm_sel_o,
+                output reg        wbm_cyc_o,
+                output reg        wbm_stb_o,
+                output reg        wbm_we_o,
+                input wire [31:0] wbm_dat_i,
+                input wire        wbm_ack_i,
+                input wire        wbm_err_i,
+                // external interrupts interface
+                input wire        xint_meip_i,
+                input wire        xint_mtip_i,
+                input wire        xint_msip_i
+                );
     // ---------------------------------------------------------------------
     // State machine
     localparam cpu_state_reset   = 10'b0000000001;
@@ -101,9 +100,6 @@ module bPersei #(
     localparam I_S_EXTERNAL                = 4'd9;
     localparam I_M_EXTERNAL                = 4'd11;
     //
-    localparam PRIV_U = 2'b00;
-    localparam PRIV_S = 2'b01;
-    localparam PRIV_M = 2'b11;
     // ---------------------------------------------------------------------
     // Signals
     reg [9:0]   cpu_state;
@@ -153,7 +149,6 @@ module bPersei #(
     reg [31:0]  csr_dat_o, csr_dat_i, exc_data;
     wire        undef_register;
     // CSR registers
-    reg [1:0]   priv_mode;
     wire [31:0] mstatus;
     wire [31:0] mie;
     reg [31:0]  mtvec;
@@ -165,7 +160,6 @@ module bPersei #(
     reg [63:0]  cycle;
     reg [63:0]  instret;
     // msatus fields
-    reg [1:0]   mstatus_mpp;
     reg         mstatus_mpie;
     reg         mstatus_mie;
     // mie fields
@@ -174,7 +168,7 @@ module bPersei #(
     reg         mcause_interrupt;
     reg [3:0]   mcause_mecode, e_code;
     // access check
-    reg         priv_valid, illegal_access;
+    reg         illegal_access;
     reg         is_misa, is_mhartid, is_mvendorid, is_marchid, is_mimpid, is_mstatus, is_mie, is_mtvec, is_mscratch, is_mepc;
     reg         is_mcause, is_mtval, is_mip, is_cycle, is_instret, is_cycleh, is_instreth;
     // extra
@@ -225,6 +219,7 @@ module bPersei #(
             inst_jal     = 1'h0;
             inst_jalr    = 1'h0;
             inst_lb      = 1'h0;
+
             inst_lbu     = 1'h0;
             inst_lh      = 1'h0;
             inst_lhu     = 1'h0;
@@ -326,10 +321,9 @@ module bPersei #(
             inst_csrrwi  = instruction_q[6:0] == 7'b1110011 && instruction_q[14:12] == 3'b101;
             inst_csrrsi  = instruction_q[6:0] == 7'b1110011 && instruction_q[14:12] == 3'b110;
             inst_csrrci  = instruction_q[6:0] == 7'b1110011 && instruction_q[14:12] == 3'b111;
-            //inst_system  = instruction_q[6:0] == 7'b1110011 && instruction_q[14:12] == 3'b000;
             inst_xcall   = instruction_q[6:0] == 7'b1110011 && instruction_q[31:7] == 0;
             inst_xbreak  = instruction_q[6:0] == 7'b1110011 && instruction_q[31:7] == 25'b0000000000010000000000000;
-            inst_xret    = instruction_q[6:0] == 7'b1110011 && instruction_q[31:30] == 2'b0 && instruction_q[27:7] == 21'b000000100000000000000 && priv_mode >= instruction_q[29:28];
+            inst_xret    = instruction_q[6:0] == 7'b1110011 && instruction_q[31:30] == 2'b0 && instruction_q[27:7] == 21'b000000100000000000000; // all xRET instrucctions are valid.
             //
             is_j        <= |{inst_jal, inst_jalr};
             is_b        <= |{inst_beq, inst_bne, inst_blt, inst_bltu, inst_bge, inst_bgeu};
@@ -425,8 +419,19 @@ module bPersei #(
                 end
                 // -------------------------------------------------------------
                 cpu_state_decode: begin
-                    (* parallel_case *)
                     case (1'b1)
+                        interrupt: begin
+                            // exc_data <= 32'hx;
+                            case (1'b1)
+                                // verilator lint_off WIDTH
+                                pend_int[11]: e_code <= I_M_EXTERNAL; // M-mode only.
+                                pend_int[7]:  e_code <= I_M_TIMER;
+                                pend_int[3]:  e_code <= I_M_SOFTWARE;
+                                // verilator lint_on WIDTH
+                            endcase
+                            trap_valid <= 1;
+                            cpu_state  <= cpu_state_trap;
+                        end
                         is_shift: cpu_state <= cpu_state_shift;
                         is_alu: cpu_state   <= cpu_state_execute;
                         is_l: begin
@@ -504,24 +509,12 @@ module bPersei #(
                             pc                <= mepc;
                             cpu_state         <= cpu_state_fetch;
                         end
-                        interrupt: begin
-                            // exc_data <= 32'hx;
-                            case (1'b1)
-                                // verilator lint_off WIDTH
-                                pend_int[11]: e_code <= I_U_EXTERNAL + priv_mode;
-                                pend_int[7]:  e_code <= I_U_TIMER + priv_mode;
-                                pend_int[3]:  e_code <= I_U_SOFTWARE + priv_mode;
-                                // verilator lint_on WIDTH
-                            endcase
-                            trap_valid <= 1;
-                            cpu_state  <= cpu_state_trap;
-                        end
                         default: begin
                             trap_valid <= 1;
                             exc_data   <= instruction_r;
                             case (1'b1)
                                 // verilator lint_off WIDTH
-                                inst_xcall:  e_code <= E_ECALL_FROM_U + priv_mode;
+                                inst_xcall:  e_code <= E_ECALL_FROM_M;
                                 // verilator lint_on WIDTH
                                 inst_xbreak: e_code <= E_BREAKPOINT;
                                 default:     e_code <= E_ILLEGAL_INST;
@@ -541,16 +534,16 @@ module bPersei #(
                         shift_out  <= alu_a;
                         shamt      <= alu_b[4:0];
                         shift_busy <= 1;
-                        xshamt      = alu_b[4:0] >= 4 ? 4 : 1;
+                        xshamt      = alu_b[4:0] >= 4 ? 3'h4 : 3'h1;
                     end else if (shamt > 0) begin
-                        xshamt = shamt >= 4 ? 4 : 1;
+                        xshamt = shamt >= 4 ? 3'h4 : 3'h1;
                         (* parallel_case, full_case *)
                         case (1'b1)
                             |{inst_slli, inst_sll}: shift_out <= shift_out << xshamt;
                             |{inst_srli, inst_srl}: shift_out <= shift_out >> xshamt;
                             |{inst_srai, inst_sra}: shift_out <= $signed(shift_out) >>> xshamt;
                         endcase
-                        shamt  <= shamt - (shamt >= 4 ? 4 : 1);
+                        shamt  <= shamt - (shamt >= 4 ? 5'h4 : 5'h1);
                     end else begin
                         shift_busy <= 0;
                         rf_we      <= 1;
@@ -786,13 +779,11 @@ module bPersei #(
         // verilator lint_on WIDTH
     end
     // ---------------------------------------------------------------------
-    // Machine mode: access to whole address space (4GB)
-    // User mode: access only to low 2GB (0x00000000 -> 0x7FFFFFFF)
     always @(*) begin
         (* parallel_case *)
         case (cpu_state)
             cpu_state_fetch: begin
-                illegal_mem  = priv_mode == PRIV_U && pc[31];
+                illegal_mem  = 0;
                 wbm_addr_o   = pc;
                 wbm_dat_o    = 32'bx;
                 wbm_sel_o    = 4'b0;
@@ -801,7 +792,7 @@ module bPersei #(
                 wbm_stb_o    = pc[1:0] == 0 && !illegal_mem;
             end
             cpu_state_ld: begin
-                illegal_mem  = priv_mode == PRIV_U && ld_addr[31];
+                illegal_mem  = 0;
                 wbm_addr_o   = ld_addr;
                 wbm_dat_o    = 32'bx;
                 wbm_sel_o    = 4'b0;
@@ -810,7 +801,7 @@ module bPersei #(
                 wbm_stb_o    = !illegal_mem;
             end
             cpu_state_st: begin
-                illegal_mem  = priv_mode == PRIV_U && st_addr[31];
+                illegal_mem  = 0;
                 wbm_addr_o   = st_addr;
                 wbm_dat_o    = mdat_o;
                 wbm_sel_o    = msel_o;
@@ -833,7 +824,7 @@ module bPersei #(
     // CSR
     reg wen;
     // Behavior modeling
-    assign mstatus = {19'b0, mstatus_mpp, 3'b0, mstatus_mpie, 3'b0, mstatus_mie, 3'b0};
+    assign mstatus = {19'b0, 2'b11, 3'b0, mstatus_mpie, 3'b0, mstatus_mie, 3'b0};
     assign mip     = {20'b0, xint_meip_i, 3'b0, xint_mtip_i, 3'b0, xint_msip_i, 3'b0};
     assign mie     = {20'b0, mie_meie, 3'b0, mie_mtie, 3'b0, mie_msie, 3'b0};
     assign mcause  = {mcause_interrupt, 27'b0, mcause_mecode};
@@ -846,10 +837,9 @@ module bPersei #(
         csr_scmd       <= &{is_csrs, instruction_r[19:15] != 0}; // check rs1 != 0
         csr_ccmd       <= &{is_csrc, instruction_r[19:15] != 0}; // check rs1 != 0
         //
-        priv_valid     <= priv_mode >= csr_address[9:8];
         csr_wen         = |{csr_wcmd, csr_scmd, csr_ccmd};
-        illegal_access <= (csr_wen && (csr_address[11:10] == 2'b11)) || (is_csr && (!priv_valid || undef_register));
-        wen            <= csr_wen && csr_address[11:10] != 2'b11 && priv_valid && latched_csr[1];
+        illegal_access <= (csr_wen && (csr_address[11:10] == 2'b11)) || (is_csr && undef_register);
+        wen            <= csr_wen && csr_address[11:10] != 2'b11 && latched_csr[1];
     end
     // check CSR address
     always @(posedge clk_i) begin
@@ -867,6 +857,8 @@ module bPersei #(
         is_mcause    <= csr_address == MCAUSE;
         is_mtval     <= csr_address == MTVAL;
         is_mip       <= csr_address == MIP;
+        // should not be able to read this in M-mode, i believe.
+        // The problem is that they are required for RV32I (wtf)
         is_cycle     <= csr_address == CYCLE || csr_address == MCYCLE;
         is_instret   <= csr_address == INSTRET || csr_address == MINSTRET;
         is_cycleh    <= csr_address == CYCLEH || csr_address == MCYCLEH;
@@ -909,18 +901,8 @@ module bPersei #(
     end
     // interrupts
     always @(posedge clk_i) begin
-        pend_int  <= (priv_mode < PRIV_M || mstatus_mie) ? mip & mie : 32'b0; //
+        pend_int  <= mstatus_mie ? mip & mie : 32'b0;
         interrupt <= |{pend_int[11], pend_int[7], pend_int[3]};
-    end
-    // privilege mode
-    always @(posedge clk_i) begin
-        if (rst_i) begin
-            priv_mode <= PRIV_M;
-        end
-        if (trap_valid)
-            priv_mode <= PRIV_M;
-        else if (inst_xret && !latch_instruction)
-            priv_mode <= mstatus_mpp;
     end
     // auxiliar write data
     always @(posedge clk_i) begin
@@ -933,19 +915,15 @@ module bPersei #(
     // mstatus
     always @(posedge clk_i) begin
         if (rst_i) begin
-            mstatus_mpp  <= 0;
             mstatus_mpie <= 0;
             mstatus_mie  <= 0;
         end else if (trap_valid) begin
-            mstatus_mpp  <= priv_mode;
             mstatus_mpie <= mstatus_mie;
             mstatus_mie  <= 0;
         end else if (inst_xret && !latch_instruction) begin
-            mstatus_mpp  <= PRIV_U;
             mstatus_mpie <= 1;
             mstatus_mie  <= mstatus_mpie;
         end else if (wen && is_mstatus) begin
-            mstatus_mpp  <= {2{csr_wdata[11] || csr_wdata[12]}}; // 00 or 11
             mstatus_mpie <= csr_wdata[7];
             mstatus_mie  <= csr_wdata[3];
         end
@@ -956,6 +934,7 @@ module bPersei #(
         else if (trap_valid) mepc <= {pc[31:2], 2'b0};
         else if (wen && is_mepc) mepc <= {csr_wdata[31:2], 2'b0};
     end
+    // mcause
     always @(posedge clk_i) begin
         if (rst_i) begin
             mcause_interrupt <= 0;
@@ -1006,7 +985,7 @@ module bPersei #(
         // valid 2nd cycle of CSR state
         (* parallel_case, full_case *)
         case (1'b1)
-            is_misa:                                csr_dat_o <= {2'b01, 4'b0, 26'b00000100000000000100000000};
+            is_misa:                                csr_dat_o <= {2'b01, 4'b0, 26'b00000000000000000100000000};
             is_mhartid:                             csr_dat_o <= HART_ID;
             |{is_mvendorid, is_marchid, is_mimpid}: csr_dat_o <= 0;
             is_mstatus:                             csr_dat_o <= mstatus;
@@ -1021,6 +1000,5 @@ module bPersei #(
             |{is_instret, is_instreth}:             csr_dat_o <= is_instret ? instret[31: 0] : instret[63: 32];
         endcase
     end
-    // END MYHDL TEMPLATE
 endmodule
 // EOF
