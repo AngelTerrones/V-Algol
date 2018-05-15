@@ -419,8 +419,19 @@ module Algol #(
                 end
                 // -------------------------------------------------------------
                 cpu_state_decode: begin
-                    (* parallel_case *)
                     case (1'b1)
+                        interrupt: begin
+                            // exc_data <= 32'hx;
+                            case (1'b1)
+                                // verilator lint_off WIDTH
+                                pend_int[11]: e_code <= I_M_EXTERNAL; // M-mode only.
+                                pend_int[7]:  e_code <= I_M_TIMER;
+                                pend_int[3]:  e_code <= I_M_SOFTWARE;
+                                // verilator lint_on WIDTH
+                            endcase
+                            trap_valid <= 1;
+                            cpu_state  <= cpu_state_trap;
+                        end
                         is_shift: cpu_state <= cpu_state_shift;
                         is_alu: cpu_state   <= cpu_state_execute;
                         is_l: begin
@@ -497,18 +508,6 @@ module Algol #(
                             latch_rf          <= 1'b0;
                             pc                <= mepc;
                             cpu_state         <= cpu_state_fetch;
-                        end
-                        interrupt: begin
-                            // exc_data <= 32'hx;
-                            case (1'b1)
-                                // verilator lint_off WIDTH
-                                pend_int[11]: e_code <= I_M_EXTERNAL; // M-mode only.
-                                pend_int[7]:  e_code <= I_M_TIMER;
-                                pend_int[3]:  e_code <= I_M_SOFTWARE;
-                                // verilator lint_on WIDTH
-                            endcase
-                            trap_valid <= 1;
-                            cpu_state  <= cpu_state_trap;
                         end
                         default: begin
                             trap_valid <= 1;
