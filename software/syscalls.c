@@ -22,37 +22,20 @@
 #include <stdint.h>
 #include <errno.h>
 #include <sys/stat.h>
+#include "algol.h"
 
-// exception cause values
-#define X_INST_ADDRESS_MISA    0
-#define X_INST_ACCESS_FAULT    1
-#define X_ILLEGAL_INSTRUCTION  2
-#define X_BREAKPOINT           3
-#define X_LOAD_ADDRESS_MISA    4
-#define X_LOAD_ACCESS_FAULT    5
-#define X_STORE_ADDRESS_MISA   6
-#define X_STORE_ACCESS_FAULT   7
-#define X_UCALL                8
-#define X_SCALL                9
-#define X_MCALL                11
-// interrupt cause values
-#define I_USER_SW_INT          ((1 << 31) | 0)
-#define I_SUPERVISOR_SW_INT    ((1 << 31) | 1)
-#define I_MACHINE_SW_INT       ((1 << 31) | 3)
-#define I_USER_TIMER_INT       ((1 << 31) | 4)
-#define I_SUPERVISOR_TIMER_INT ((1 << 31) | 5)
-#define I_MACHINE_TIMER_INT    ((1 << 31) | 7)
-#define I_USER_X_INT           ((1 << 31) | 8)
-#define I_SUPERVISOR_X_INT     ((1 << 31) | 9)
-#define I_MACHINE_X_INT        ((1 << 31) | 11)
+#define MAX_CAUSE 16  // No more than 16 interrupt/exception sources.
+
 // Output device address
 #define CONSOLE_BUFFER 0x10000000
 #define CONSOLE_FLUSH  0x10000004
 // Code placement
 #define UNIMP_FUNC(__f) ".globl " #__f "\n.type " #__f ", @function\n" #__f ":\n"
 
-// Private (machine) variables.
+// Private variables.
 extern volatile uint64_t tohost;
+static TRAPFUNC _interrupt_handler[MAX_CAUSE];
+static TRAPFUNC _exception_handler[MAX_CAUSE];
 
 // -----------------------------------------------------------------------------
 // for simulation purposes: write to tohost address.
@@ -62,42 +45,24 @@ void tohost_exit(uintptr_t code) {
         __builtin_unreachable();
 }
 
+// -----------------------------------------------------------------------------
+// default exception handler
+uintptr_t default_handler(uintptr_t epc, uintptr_t regs[32]){
+        printf("[SYSCALL] Default handler. Abort...\n");
+        tohost_exit(-1);
+        __builtin_unreachable();
+        return epc;
+}
+
 // C trap handler
 uintptr_t handle_trap(uintptr_t cause, uintptr_t epc, uintptr_t regs[32])
 {
-        // TODO: improve trap handler
-        switch (cause){
-        case X_INST_ADDRESS_MISA:
-                printf("Instruction fetch misaligned.\n");
-                break;
-        case X_INST_ACCESS_FAULT:
-                printf("Instruction fetch error.\n");
-                break;
-        case X_ILLEGAL_INSTRUCTION:
-                printf("Illegal instruction.\n");
-                break;
-        case X_LOAD_ADDRESS_MISA:
-                printf("Load address misaligned.\n");
-                break;
-        case X_LOAD_ACCESS_FAULT:
-                printf("Load access error.\n");
-                break;
-        case X_STORE_ADDRESS_MISA:
-                printf("Store address misaligned.\n");
-                break;
-        case X_STORE_ACCESS_FAULT:
-                printf("Store access error.\n");
-                break;
-        case X_UCALL:
-                printf("Environmental call");
-                break;
-        default:
-                // unimplemented handler. GTFO.
-                printf("Unimplemented handler.\n");
-        }
-        tohost_exit(cause);
-        __builtin_unreachable();
-        return epc + 4; //WARNING: Will never reach (for now)
+        uintptr_t npc;
+        if (cause & 0x80000000)
+                npc = _interrupt_handler[cause & 0xF](epc, regs);
+        else
+                npc = _exception_handler[cause & 0xF](epc, regs);
+        return npc;
 }
 
 // -----------------------------------------------------------------------------
@@ -183,7 +148,7 @@ asm (
         );
 
 void unimplemented_syscall() {
-        printf("Unimplemented syscall! Abort()\n");
+        printf("[SYSCALL] Unimplemented syscall! Abort()\n");
         _exit(-1);
         __builtin_unreachable();
 }
@@ -197,7 +162,83 @@ int __attribute__((weak)) main(int argc, char* argv[]){
 
 // configure the call to main()
 void _init() {
+        // set default trap handlers
+        int ii;
+        for (ii = 0; ii < MAX_CAUSE; ii++) {
+                _interrupt_handler[ii] = default_handler;
+                _exception_handler[ii] = default_handler;
+        }
+        // call main
         int rcode = main(0, 0);
         _exit(rcode);
         __builtin_unreachable();
+}
+
+// -----------------------------------------------------------------------------
+// User functions
+// Add a interrupt handler.
+void insert_ihandler(uint32_t cause, TRAPFUNC func) {
+        cause = cause & 0xFF;
+        if (cause >= MAX_CAUSE) {
+                printf("[SYSCALL] Out of bounds CAUSE index.\n");
+                return;
+        }
+        _interrupt_handler[cause] = func;
+}
+
+// Add a exception handler.
+void insert_xhandler(uint32_t cause, TRAPFUNC func) {
+        if (cause >= MAX_CAUSE) {
+                printf("[SYSCALL] Out of bounds CAUSE index.\n");
+                return;
+        }
+        _exception_handler[cause] = func;
+}
+
+// Enable global interrupts
+void enable_interrupts(){
+        asm("li t0, 0x8;");
+        asm("csrs mstatus, t0;");
+}
+
+// Disable global interrupts
+void disable_interrupts(){
+        asm("li t0, 0x8;");
+        asm("csrc mstatus, t0;");
+}
+
+// Enable Software Interrupts
+void enable_si(){
+        asm("li t0, 0x8;");
+        asm("csrs mie, t0;");
+}
+
+// Disable Software Interrupts
+void disable_si(){
+        asm("li t0, 0x8;");
+        asm("csrc mie, t0;");
+}
+
+// Enable Timer interrupts
+void enable_ti(){
+        asm("li t0, 0x80;");
+        asm("csrs mie, t0;");
+}
+
+// Disable Timer Interrupts
+void disable_ti(){
+        asm("li t0, 0x80;");
+        asm("csrc mie, t0;");
+}
+
+// Enable External Interrupts
+void enable_ei(){
+        asm("li t0, 0x800;");
+        asm("csrs mie, t0;");
+}
+
+// Disable External Interrupts
+void disable_ei(){
+        asm("li t0, 0x800;");
+        asm("csrc mie, t0;");
 }
