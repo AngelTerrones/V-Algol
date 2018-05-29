@@ -33,7 +33,7 @@ compile-tests:
 
 # ------------------------------------------------------------------------------
 # verilate and build
-verilate-algol: Algol/Algol.v
+verilate-algol:
 	@printf "%b" "$(.MSJ_COLOR)Building RTL (Modules) for Verilator$(.NO_COLOR)\n"
 	@mkdir -p $(.BFOLDER)
 	+@$(.SUBMAKE) -f $(.MK_ALGOL) build-vlib BUILD_DIR=$(.BFOLDER)

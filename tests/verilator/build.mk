@@ -7,7 +7,7 @@ include tests/verilator/pprint.mk
 # verilate
 .VOBJ := $(BUILD_DIR)/Algol_obj
 .SUBMAKE := $(MAKE) --no-print-directory --directory=$(.VOBJ) -f
-.VERILATE := verilator --trace -Wall -Wno-fatal -cc -CFLAGS "-std=c++11 -O3" -Mdir $(.VOBJ)
+.VERILATE := verilator --trace -Wall -Wno-fatal -cc -CFLAGS "-std=c++11 -O3" -Mdir $(.VOBJ) --prefix VAlgol
 
 # C++ build
 CXX := g++
@@ -43,7 +43,7 @@ build-core: $(BUILD_DIR)/Algol.exe
 .SECONDARY: $(OBJS)
 
 # Verilator
-$(.VOBJ)/VAlgol__ALL.a: Algol/Algol.v
+$(.VOBJ)/VAlgol__ALL.a: hardware/algol.v
 	@printf "%b" "$(.COM_COLOR)$(.VER_STRING)$(.OBJ_COLOR) $<$(.NO_COLOR)\n"
 	+@$(.VERILATE) $<
 	@printf "%b" "$(.COM_COLOR)$(.COM_STRING)$(.OBJ_COLOR) $(@F)$(.NO_COLOR)\n"

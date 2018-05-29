@@ -1,46 +1,48 @@
-/*
- * Algol - A RISC-V (RV32I) Processor Core.
- *
- * Copyright (C) 2017 Angel Terrones <angelterrones@gmail.com>
- *
- * Permission to use, copy, modify, and/or distribute this software for any
- * purpose with or without fee is hereby granted, provided that the above
- * copyright notice and this permission notice appear in all copies.
- *
- * THE SOFTWARE IS PROVIDED "AS IS" AND THE AUTHOR DISCLAIMS ALL WARRANTIES
- * WITH REGARD TO THIS SOFTWARE INCLUDING ALL IMPLIED WARRANTIES OF
- * MERCHANTABILITY AND FITNESS. IN NO EVENT SHALL THE AUTHOR BE LIABLE FOR
- * ANY SPECIAL, DIRECT, INDIRECT, OR CONSEQUENTIAL DAMAGES OR ANY DAMAGES
- * WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS, WHETHER IN AN
- * ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF
- * OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
- */
+// -----------------------------------------------------------------------------
+// Copyright (C) 2018 Angel Terrones <angelterrones@gmail.com>
+//
+// Permission to use, copy, modify, and/or distribute this software for any
+// purpose with or without fee is hereby granted, provided that the above
+// copyright notice and this permission notice appear in all copies.
+//
+// THE SOFTWARE IS PROVIDED "AS IS" AND THE AUTHOR DISCLAIMS ALL WARRANTIES
+// WITH REGARD TO THIS SOFTWARE INCLUDING ALL IMPLIED WARRANTIES OF
+// MERCHANTABILITY AND FITNESS. IN NO EVENT SHALL THE AUTHOR BE LIABLE FOR
+// ANY SPECIAL, DIRECT, INDIRECT, OR CONSEQUENTIAL DAMAGES OR ANY DAMAGES
+// WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS, WHETHER IN AN
+// ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF
+// OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
+// -----------------------------------------------------------------------------
+// Title       : A RISC-V processor
+// Project     : Algol
+// Description : A multi-cycle, RV32I, RISC-V processor.
+// -----------------------------------------------------------------------------
 
 `default_nettype none
 `timescale 1 ns / 1 ps
 
-module Algol #(
-              parameter [31:0] HART_ID = 0,
-              parameter [31:0] RESET_ADDR = 32'h8000_0000,
-              parameter [0:0]  ENABLE_COUNTERS = 1
-              )(
-                input wire        clk_i,
-                input wire        rst_i,
-                // wishbone instruction and data port
-                output reg [31:0] wbm_addr_o,
-                output reg [31:0] wbm_dat_o,
-                output reg [ 3:0] wbm_sel_o,
-                output reg        wbm_cyc_o,
-                output reg        wbm_stb_o,
-                output reg        wbm_we_o,
-                input wire [31:0] wbm_dat_i,
-                input wire        wbm_ack_i,
-                input wire        wbm_err_i,
-                // external interrupts interface
-                input wire        xint_meip_i,
-                input wire        xint_mtip_i,
-                input wire        xint_msip_i
-                );
+module algol #(
+               parameter [31:0] HART_ID = 0,
+               parameter [31:0] RESET_ADDR = 32'h8000_0000,
+               parameter [0:0]  ENABLE_COUNTERS = 1
+               )(
+                 input wire        clk_i,
+                 input wire        rst_i,
+                 // wishbone instruction and data port
+                 output reg [31:0] wbm_addr_o,
+                 output reg [31:0] wbm_dat_o,
+                 output reg [ 3:0] wbm_sel_o,
+                 output reg        wbm_cyc_o,
+                 output reg        wbm_stb_o,
+                 output reg        wbm_we_o,
+                 input wire [31:0] wbm_dat_i,
+                 input wire        wbm_ack_i,
+                 input wire        wbm_err_i,
+                 // external interrupts interface
+                 input wire        xint_meip_i,
+                 input wire        xint_mtip_i,
+                 input wire        xint_msip_i
+                 );
     // ---------------------------------------------------------------------
     // State machine
     localparam cpu_state_reset   = 10'b0000000001;
