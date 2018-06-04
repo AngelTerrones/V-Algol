@@ -1,7 +1,7 @@
 ![logo](documentation/img/logo.png)
 
-ALGOL - A RISC-V CPU system
-===========================
+ALGOL - A RISC-V CPU
+====================
 
 Algol is a CPU core that implements the [RISC-V RV32I Instruction Set](http://riscv.org/).
 
@@ -10,7 +10,7 @@ Algol is free and open hardware licensed under the [MIT license](https://en.wiki
 <!-- markdown-toc start - Don't edit this section. Run M-x markdown-toc-refresh-toc -->
 **Table of Contents**
 
-- [ALGOL - A RISC-V CPU system](#algol---a-risc-v-cpu-system)
+- [ALGOL - A RISC-V CPU](#algol---a-risc-v-cpu)
     - [Dependencies](#dependencies)
     - [CPU core details](#cpu-core-details)
     - [Software Details](#software-details)
@@ -46,7 +46,7 @@ Software Details
 Directory Layout
 ----------------
 - `README.md`: This file.
-- `Algol`: CPU source file written in Verilog.
+- `hardware`: CPU source files written in Verilog.
 - `documentation`: LaTeX source files for the CPU manuals (TODO).
 - `software`: Support libraries for the CPU, in C.
 - `tests`: Test environment for the CPU.
