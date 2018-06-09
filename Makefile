@@ -44,26 +44,10 @@ build-algol: verilate-algol
 # ------------------------------------------------------------------------------
 # verilator tests
 run-algol-tests: compile-tests build-algol
-	@$(eval .RVTESTS:=$(shell find $(.RVTESTSF) -name "rv32ui*.elf" -o -name "rv32mi*.elf" ! -name "*breakpoint*.elf"))
-	@for file in $(.RVTESTS); do \
-		$(.ALGOLCMD) $$file > /dev/null; \
-		if [ $$? -eq 0 ]; then \
-			printf "%-50b %b\n" $$file "$(.OK_COLOR)$(.OK_STRING)$(.NO_COLOR)"; \
-		else \
-			printf "%-50s %b" $$file "$(.ERROR_COLOR)$(.ERROR_STRING)$(.NO_COLOR)\n"; \
-		fi; \
-	done
-	@$(eval .RVBENCHMARKS:=$(shell find $(.RVBENCHMARKSF) -name "*.riscv"))
-	@for file in $(.RVBENCHMARKS); do \
-		$(.ALGOLCMD) $$file > /dev/null; \
-		if [ $$? -eq 0 ]; then \
-			printf "%-50b %b\n" $$file "$(.OK_COLOR)$(.OK_STRING)$(.NO_COLOR)"; \
-		else \
-			printf "%-50s %b" $$file "$(.ERROR_COLOR)$(.ERROR_STRING)$(.NO_COLOR)\n"; \
-		fi; \
-	done
+	$(eval .RVTESTS:=$(shell find $(.RVTESTSF) -name "rv32ui*.elf" -o -name "rv32mi*.elf" ! -name "*breakpoint*.elf"))
+	$(eval .RVBENCHMARKS:=$(shell find $(.RVBENCHMARKSF) -name "*.riscv"))
 	@$(eval .RVXTRATESTS:=$(shell find $(.RVXTRATESTSF) -name "*.riscv"))
-	@for file in $(.RVXTRATESTS); do \
+	@for file in $(.RVTESTS) $(.RVBENCHMARKS) $(.RVXTRATESTS); do \
 		$(.ALGOLCMD) $$file > /dev/null; \
 		if [ $$? -eq 0 ]; then \
 			printf "%-50b %b\n" $$file "$(.OK_COLOR)$(.OK_STRING)$(.NO_COLOR)"; \
