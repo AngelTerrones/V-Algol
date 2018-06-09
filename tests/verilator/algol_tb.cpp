@@ -186,32 +186,38 @@ void PrintHelp() {
         printf("Algol Verilator model.\n");
         printf("Usage:\n");
         printf("\tAlgol.exe --frequency <core frequency> --timeout <max simulation time> --file <filename> "
-               "[--trace] [--trace-directory <trace directory>]\n");
+               "[--trace] [--trace-directory <trace directory>] [--trace-name <VCD name>]\n");
 }
 
 // -----------------------------------------------------------------------------
 // Main
 int main(int argc, char **argv) {
         INPUTPARSER input(argc, argv);
-        const std::string &s_progfile  = input.GetCmdOption("--file");
-        const std::string &s_frequency = input.GetCmdOption("--frequency");
-        const std::string &s_timeout   = input.GetCmdOption("--timeout");
-        const std::string &s_trace_dir = input.GetCmdOption("--trace-directory");
-        const bool trace               = input.CmdOptionExist("--trace");
-        const bool help                = input.CmdOptionExist("--help");
+        const std::string &s_progfile   = input.GetCmdOption("--file");
+        const std::string &s_frequency  = input.GetCmdOption("--frequency");
+        const std::string &s_timeout    = input.GetCmdOption("--timeout");
+        const std::string &s_trace_dir  = input.GetCmdOption("--trace-directory");
+        const std::string &s_trace_name = input.GetCmdOption("--trace-name");
+        const bool trace                = input.CmdOptionExist("--trace");
+        const bool help                 = input.CmdOptionExist("--help");
 
         if (s_progfile.empty() or s_frequency.empty() or s_timeout.empty() or help) {
                 PrintHelp();
-                exit(0);
+                exit(-1);
         }
         const double frequency = std::stod(s_frequency);
         const uint32_t timeout = std::stoul(s_timeout);
         std::unique_ptr<ALGOLTB> tb(new ALGOLTB(frequency));
         if (trace) {
-                std::string bf = s_progfile.substr(s_progfile.find_last_of("/\\") + 1);
-                std::string::size_type const p(bf.find_last_of('.'));
-                std::string binfile = bf.substr(0, p);
-                std::string vcdfile = (s_trace_dir.empty() ? "." : s_trace_dir) + "/Algol_" + binfile + ".vcd";
+                std::string binfile;
+                if (s_trace_name.empty()) {
+                        std::string bf = s_progfile.substr(s_progfile.find_last_of("/\\") + 1);
+                        std::string::size_type const p(bf.find_last_of('.'));
+                        binfile = "/cpu-trace-" + bf.substr(0, p) + ".vcd";
+                } else {
+                        binfile = "/" + s_trace_name;
+                }
+                std::string vcdfile = (s_trace_dir.empty() ? "." : s_trace_dir) + binfile;
                 tb->OpenTrace(vcdfile.data());
         }
         tb->Reset();
