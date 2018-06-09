@@ -386,7 +386,7 @@ module algol #(
             xshamt             = 3'h0;
             // End of automatics
         end else begin
-            //exc_data <= pc;
+            exc_data <= 0;
             (* parallel_case *)
             case ( cpu_state )
                 // -------------------------------------------------------------
@@ -423,7 +423,6 @@ module algol #(
                 cpu_state_decode: begin
                     case (1'b1)
                         interrupt: begin
-                            // exc_data <= 32'hx;
                             case (1'b1)
                                 // verilator lint_off WIDTH
                                 pend_int[11]: e_code <= I_M_EXTERNAL; // M-mode only.
@@ -513,13 +512,10 @@ module algol #(
                         end
                         default: begin
                             trap_valid <= 1;
-                            exc_data   <= instruction_r;
                             case (1'b1)
-                                // verilator lint_off WIDTH
-                                inst_xcall:  e_code <= E_ECALL_FROM_M;
-                                // verilator lint_on WIDTH
-                                inst_xbreak: e_code <= E_BREAKPOINT;
-                                default:     e_code <= E_ILLEGAL_INST;
+                                inst_xcall:  begin e_code <= E_ECALL_FROM_M; exc_data <= 0; end
+                                inst_xbreak: begin e_code <= E_BREAKPOINT;   exc_data <= pc; end
+                                default:     begin e_code <= E_ILLEGAL_INST; exc_data <= instruction_r; end
                             endcase
                             cpu_state <= cpu_state_trap;
                         end
