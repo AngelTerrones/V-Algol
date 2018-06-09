@@ -19,7 +19,6 @@ Algol is free and open hardware licensed under the [MIT license](https://en.wiki
         - [Compile assembly tests and benchmarks](#compile-assembly-tests-and-benchmarks)
         - [Validate cores](#validate-cores)
     - [RISC-V toolchain](#risc-v-toolchain)
-    - [TODO](#todo)
     - [License](#license)
 
 <!-- markdown-toc end -->
@@ -50,9 +49,9 @@ Directory Layout
 - `documentation`: LaTeX source files for the CPU manuals (TODO).
 - `software`: Support libraries for the CPU, in C.
 - `tests`: Test environment for the CPU.
-    - `benchmarks`: Basic benchmarks written in C. Taken from [riscv-tests](http://riscv.org/software-tools/riscv-tests/) (git rev b747a10**).
+    - `benchmarks`: Basic benchmarks written in C. Taken from [riscv-tests](http://riscv.org/software-tools/riscv-tests/) (git rev b747a10).
     - `extra-tests`: Tests for the support libraries, and external interrupts.
-    - `riscv-tests`: Basic instruction-level tests. Taken from [riscv-tests](http://riscv.org/software-tools/riscv-tests/) (git rev b747a10**).
+    - `riscv-tests`: Basic instruction-level tests. Taken from [riscv-tests](http://riscv.org/software-tools/riscv-tests/) (git rev b747a10).
     - `verilator`: C++ testbench for the CPU validation.
 
 Validation
@@ -81,12 +80,8 @@ RISC-V toolchain
 The easy way to get the toolchain is to download a pre-compiled version from the
 [GNU MCU Eclipse](https://gnu-mcu-eclipse.github.io/) project.
 
-The version used to validate this core is the [Embedded GCC v7.2.0-1-20171109](https://gnu-mcu-eclipse.github.io/blog/2017/11/09/riscv-none-gcc-v7-2-0-1-20171109-released/)
-
-TODO
-----
-- RV32M ISA.
-- Debug module.
+The version used to simulate the design is the [Embedded GCC
+v7.2.0-3-20180506](https://gnu-mcu-eclipse.github.io/blog/2018/05/06/riscv-none-gcc-v7-2-0-3-20180506-released/)
 
 License
 -------
