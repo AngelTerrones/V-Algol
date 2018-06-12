@@ -84,8 +84,11 @@ void WBMEMORY::operator()(const uint32_t wbs_addr_i, const uint32_t wbs_dat_i, c
         auto addr     = ((wbs_addr_i - m_base_addr) >> 2) & m_mask; // Byte address to word address.
         auto mem_size = m_size << 2;
         // check for access
-        if (!(wbs_cyc_i && wbs_stb_i))
+        if (!(wbs_cyc_i && wbs_stb_i)){
+                // Reset the counter: transaction have been aborted.
+                m_delay_cnt = 0;
                 return;
+        }
         // check if the address is out of memory range.
         if (wbs_addr_i < m_base_addr || wbs_addr_i >= m_base_addr + mem_size)
                 return;
@@ -103,7 +106,7 @@ void WBMEMORY::operator()(const uint32_t wbs_addr_i, const uint32_t wbs_dat_i, c
                         (*m_memory)[addr] = b3 | b2 | b1 | b0;
                 }
                 wbs_data_o  = (*m_memory)[addr];
-                wbs_ack_o   = 1;
+                wbs_ack_o   = wbs_cyc_i && wbs_stb_i;
                 wbs_err_o   = 0;
                 m_delay_cnt = 0;
         }
