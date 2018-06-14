@@ -1,6 +1,4 @@
 /*
- * Algol - A RISC-V (RV32I) Processor Core.
- *
  * Copyright (C) 2018 Angel Terrones <angelterrones@gmail.com>
  *
  * Permission to use, copy, modify, and/or distribute this software for any
@@ -84,7 +82,7 @@ void WBMEMORY::operator()(const uint32_t wbs_addr_i, const uint32_t wbs_dat_i, c
         auto addr     = ((wbs_addr_i - m_base_addr) >> 2) & m_mask; // Byte address to word address.
         auto mem_size = m_size << 2;
         // check for access
-        if (!(wbs_cyc_i && wbs_stb_i)){
+        if (!(wbs_cyc_i && wbs_stb_i)) {
                 // Reset the counter: transaction have been aborted.
                 m_delay_cnt = 0;
                 return;

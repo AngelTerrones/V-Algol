@@ -1,6 +1,4 @@
 /*
- * Algol - A RISC-V (RV32I) Processor Core.
- *
  * Copyright (C) 2018 Angel Terrones <angelterrones@gmail.com>
  *
  * Permission to use, copy, modify, and/or distribute this software for any
