@@ -8,20 +8,20 @@ include tests/verilator/pprint.mk
 .RTLDIR		:= hardware
 .TBDIR		:= tests/verilator
 VSOURCES	:= $(shell find . -name "*.v")
-VTOP			:= $(.TBDIR)/top.v
+VTOP		:= $(.TBDIR)/top.v
 #--------------------------------------------------
-.VOBJ := $(BUILD_DIR)/obj_dir
-.SUBMAKE := $(MAKE) --no-print-directory --directory=$(.VOBJ) -f
-.VERILATE := verilator -O3 --trace -Wall -Wno-fatal --x-assign 1 -cc -y $(.RTLDIR) -y $(.TBDIR) -CFLAGS "-std=c++11 -O3" -Mdir $(.VOBJ)
+.VOBJ 		:= $(BUILD_DIR)/obj_dir
+.SUBMAKE 	:= $(MAKE) --no-print-directory --directory=$(.VOBJ) -f
+.VERILATE 	:= verilator -O3 --trace -Wall -Wno-fatal --x-assign 1 -cc -y $(.RTLDIR) -y $(.TBDIR) -CFLAGS "-std=c++11 -O3 -DDPI_DLLISPEC= -DDPI_DLLESPEC=" -Mdir $(.VOBJ)
 
 #--------------------------------------------------
 # C++ build
-CXX					:= g++
-CFLAGS			:= -std=c++17 -Wall -O3 # -g # -DDEBUG # -Wno-sign-compare
+CXX			:= g++
+CFLAGS		:= -std=c++17 -Wall -O3 -DDPI_DLLISPEC= -DDPI_DLLESPEC= -MD -MP # -g # -DDEBUG # -Wno-sign-compare
 CFLAGS_NEW	:= -faligned-new -Wno-attributes
-VROOT				:= $(shell bash -c 'verilator -V|grep VERILATOR_ROOT | head -1 | sed -e " s/^.*=\s*//"')
-VINCD				:= $(VROOT)/include
-VINC				:= -I$(VINCD) -I$(VINCD)/vltstd -I$(.VOBJ)
+VROOT		:= $(shell bash -c 'verilator -V|grep VERILATOR_ROOT | head -1 | sed -e " s/^.*=\s*//"')
+VINCD		:= $(VROOT)/include
+VINC		:= -I$(VINCD) -I$(VINCD)/vltstd -I$(.VOBJ)
 
 #--------------------------------------------------
 ifeq ($(OS),Windows_NT)
@@ -37,9 +37,10 @@ ifeq ($(GCC7), 1)
 endif
 
 #--------------------------------------------------
-VOBJS	:= $(.VOBJ)/verilated.o $(.VOBJ)/verilated_vcd_c.o
-SOURCES := testbench.cpp aelf.cpp
-OBJS	:= $(addprefix $(.VOBJ)/, $(subst .cpp,.o,$(SOURCES)))
+VOBJS	 := $(.VOBJ)/verilated.o $(.VOBJ)/verilated_vcd_c.o $(.VOBJ)/verilated_dpi.o
+SOURCES  := testbench.cpp aelf.cpp
+OBJS	 := $(addprefix $(.VOBJ)/, $(subst .cpp,.o,$(SOURCES)))
+DEPFILES := $(addprefix $(.VOBJ)/, $(subst .cpp,.d,$(SOURCES)))
 
 # ------------------------------------------------------------------------------
 # targets
@@ -69,5 +70,7 @@ $(BUILD_DIR)/$(EXE).exe: $(VOBJS) $(OBJS) $(.VOBJ)/Vtop__ALL.a
 	@printf "%b" "$(.COM_COLOR)$(.COM_STRING)$(.OBJ_COLOR) $(@F)$(.NO_COLOR)\n"
 	@$(CXX) $(INCS) $^ -lelf -o $@
 	@printf "%b" "$(.MSJ_COLOR)Compilation $(.OK_COLOR)$(.OK_STRING)$(.NO_COLOR)\n"
+
+-include $(DEPFILES)
 
 .PHONY: build-vlib build-core

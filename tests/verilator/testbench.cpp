@@ -24,7 +24,7 @@
 #include <algorithm>
 #include <verilated.h>
 #include "Vtop.h"
-#include "Vtop__Syms.h"
+#include "Vtop__Dpi.h"
 #include "aelf.h"
 #include "testbench.h"
 // -----------------------------------------------------------------------------
@@ -41,8 +41,8 @@
 #define ANSI_COLOR_RESET   "\x1b[0m"
 // -----------------------------------------------------------------------------
 // Fixed parameters from TOP.v
-#define TBFREQ 100e6
-#define TBTS   1e-9
+#define TBFREQ   100e6
+#define TBTS     1e-9
 #define MEMSTART 0x80000000u    // Initial address
 #define MEMSZ    0x01000000u    // size: 16 MB
 // -----------------------------------------------------------------------------
@@ -53,32 +53,32 @@
 #define FROMHOST 0x80001040u
 
 // -----------------------------------------------------------------------------
+// DPI function
+void c_load_mem(const svOpenArrayHandle mem_ptr, const char *filename) {
+        ELFSECTION **section;
+        uint8_t     *mem = static_cast<uint8_t *>(svGetArrayPtr(mem_ptr));
+        if (not isELF(filename)) {
+                fprintf(stderr, ANSI_COLOR_RED "[CORETB] Invalid elf: %s\n" ANSI_COLOR_RESET, filename);
+                exit(EXIT_FAILURE);
+        }
+        elfread(filename, section);
+        for (int s = 0; section[s] != nullptr; s++){
+                auto start = section[s]->m_start;
+                auto end   = section[s]->m_start + section[s]->m_len;
+                if (start >= MEMSTART && end < MEMSTART + MEMSZ) {
+                        uint32_t offset = section[s]->m_start - MEMSTART;
+                        std::memcpy(mem + offset, section[s]->m_data, section[s]->m_len);
+                } else {
+                        fprintf(stderr, ANSI_COLOR_MAGENTA "[CORETB] WARNING: unable to fit section %d. Start: 0x%08x, End: 0x%08x\n" ANSI_COLOR_RESET, s, start, end);
+                }
+        }
+        delete [] section;
+}
+// -----------------------------------------------------------------------------
 // testbench
 class CORETB: public Testbench<Vtop> {
 private:
         uint32_t m_exitCode;
-        // -----------------------------------------------------------------------------
-        // Load memory with a binary file
-        void LoadMemory(const std::string &progfile) {
-                ELFSECTION    **section;
-                const char     *fn      = progfile.data();
-                if (not isELF(fn)) {
-                        fprintf(stderr, ANSI_COLOR_RED "[CORETB] Invalid elf: %s\n" ANSI_COLOR_RESET, progfile.c_str());
-                        exit(EXIT_FAILURE);
-                }
-                elfread(fn, section);
-                for (int s = 0; section[s] != nullptr; s++){
-                        auto start = section[s]->m_start;
-                        auto end   = section[s]->m_start + section[s]->m_len;
-                        if (start >= MEMSTART && end < MEMSTART + MEMSZ) {
-                                uint32_t offset = section[s]->m_start - MEMSTART;
-                                std::memcpy(MEMORY + offset, section[s]->m_data, section[s]->m_len);
-                        } else {
-                                fprintf(stderr, ANSI_COLOR_MAGENTA "[CORETB] WARNING: unable to fit section %d. Start: 0x%08x, End: 0x%08x\n" ANSI_COLOR_RESET, s, start, end);
-                        }
-                }
-                delete [] section;
-        }
         // -----------------------------------------------------------------------------
         // Print exit message
         uint32_t PrintExitMessage(const bool ok, const uint32_t time, const unsigned long max_time) const {
@@ -98,21 +98,20 @@ private:
         // -----------------------------------------------------------------------------
         // check for syscall
         bool CheckTOHOST(bool &ok) {
-                uint32_t tohost = *((uint32_t *)(MEMORY + TOHOST - MEMSTART));
+                uint32_t tohost = dpi_read_word(TOHOST);
                 if (tohost == 0)
                         return false;
-                bool isPtr      = (tohost - MEMSTART) <= MEMSZ;
-                bool _exit      = tohost == 1 || not isPtr;
-                ok              = tohost == 1;
-                m_exitCode      = tohost;
+                bool isPtr = (tohost - MEMSTART) <= MEMSZ;
+                bool _exit = tohost == 1 || not isPtr;
+                ok         = tohost == 1;
+                m_exitCode = tohost;
                 if (not _exit) {
                         const uint32_t data0 = tohost;
                         const uint32_t data1 = data0 + 8; // 64-bit aligned
-                        // abuse the fact that syscall and flag are bytes
-                        if (MEMORY[data0 - MEMSTART] == SYSCALL and MEMORY[data1 - MEMSTART] == 1) {
+                        if (dpi_read_word(data0) == SYSCALL and dpi_read_word(data1) == 1) {
                                 SyscallPrint(data0);
-                                *((uint32_t *)(MEMORY + FROMHOST - MEMSTART)) = 1; // reset to inital state
-                                *((uint32_t *)(MEMORY + TOHOST - MEMSTART)) = 0; // reset to inital state
+                                dpi_write_word(FROMHOST, 1); // reset to inital state
+                                dpi_write_word(TOHOST, 0);   // reset to inital state
                         } else {
                                 _exit = true;
                         }
@@ -122,10 +121,10 @@ private:
         // -----------------------------------------------------------------------------
         // For benchmarks, prints data from syscall 64.
         void SyscallPrint(const uint32_t base_addr) const {
-                const uint64_t data_addr = *(2 + (uint64_t *)(MEMORY + base_addr - MEMSTART));
-                const uint64_t size      = *(3 + (uint64_t *)(MEMORY + base_addr - MEMSTART));
-                for (uint32_t ii = 0; ii < size; ii++){
-                        printf("%c", MEMORY[data_addr - MEMSTART + ii]);
+                const uint64_t data_addr = dpi_read_word(base_addr + 16); // dword 2: offset = 16 bytes.
+                const uint64_t size      = dpi_read_word(base_addr + 24); // dword 3: offset = 24 bytes.
+                for (uint32_t ii = 0; ii < size; ii++) {
+                        printf("%c", dpi_read_byte(data_addr + ii));
                 }
         }
 public:
@@ -136,7 +135,7 @@ public:
         // Run the CPU model.
         int SimulateCore(const std::string &progfile, const unsigned long max_time=1000000L){
                 bool ok = false;
-                LoadMemory(progfile);
+                dpi_load_mem(progfile.data());
                 printf(ANSI_COLOR_YELLOW "Executing file: %s\n" ANSI_COLOR_RESET, progfile.c_str());
                 for (; getTime() < max_time;) {
                         Tick();
@@ -195,6 +194,10 @@ int main(int argc, char **argv) {
         }
         const uint32_t timeout   = std::stoul(s_timeout);
         std::unique_ptr<CORETB> tb(new CORETB());
+#ifdef DEBUG
+        Verilated::scopesDump();  // this shit should be in the fucking manual (verilator)
+#endif
+        svSetScope(svGetScopeFromName("TOP.top.memory"));
         if (trace) {
                 int status = mkdir("build/vcd", S_IRWXU | S_IRWXG | S_IROTH | S_IXOTH);
                 if (status && errno != EEXIST) {
