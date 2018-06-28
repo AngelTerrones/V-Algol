@@ -135,9 +135,10 @@ public:
         // Run the CPU model.
         int SimulateCore(const std::string &progfile, const unsigned long max_time=1000000L){
                 bool ok = false;
+                bool notimeout = max_time == 0;
                 dpi_load_mem(progfile.data());
                 printf(ANSI_COLOR_YELLOW "Executing file: %s\n" ANSI_COLOR_RESET, progfile.c_str());
-                for (; getTime() < max_time;) {
+                while ((getTime() <= max_time || notimeout) && !Verilated::gotFinish()) {
                         Tick();
                         if (CheckTOHOST(ok))
                                 break;
@@ -176,7 +177,7 @@ private:
 void PrintHelp() {
         printf("RISC-V CPU Verilator model.\n");
         printf("Usage:\n");
-        printf("\t" EXE ".exe --file <ELF file> --timeout <max simulation time> [--trace] [--help]\n");
+        printf("\t" EXE ".exe --file <ELF file> [--timeout <max simulation time>] [--trace] [--help]\n");
 }
 
 // -----------------------------------------------------------------------------
@@ -188,11 +189,11 @@ int main(int argc, char **argv) {
         const bool trace              = input.CmdOptionExist("--trace");
         const bool help               = input.CmdOptionExist("--help");
 
-        if (s_progfile.empty() or s_timeout.empty() or help) {
+        if (s_progfile.empty() or help) {
                 PrintHelp();
                 exit(EXIT_FAILURE);
         }
-        const uint32_t timeout   = std::stoul(s_timeout);
+        const uint32_t timeout = (s_timeout.empty()) ? 0 : std::stoul(s_timeout);
         std::unique_ptr<CORETB> tb(new CORETB());
 #ifdef DEBUG
         Verilated::scopesDump();  // this shit should be in the fucking manual (verilator)
