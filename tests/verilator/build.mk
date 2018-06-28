@@ -10,9 +10,9 @@ include tests/verilator/pprint.mk
 VSOURCES	:= $(shell find . -name "*.v")
 VTOP		:= $(.TBDIR)/top.v
 #--------------------------------------------------
-.VOBJ 		:= $(BUILD_DIR)/obj_dir
-.SUBMAKE 	:= $(MAKE) --no-print-directory --directory=$(.VOBJ) -f
-.VERILATE 	:= verilator -O3 --trace -Wall -Wno-fatal --x-assign 1 -cc -y $(.RTLDIR) -y $(.TBDIR) -CFLAGS "-std=c++11 -O3 -DDPI_DLLISPEC= -DDPI_DLLESPEC=" -Mdir $(.VOBJ)
+.VOBJ		:= $(BUILD_DIR)/obj_dir
+.SUBMAKE	:= $(MAKE) --no-print-directory --directory=$(.VOBJ) -f
+.VERILATE	:= verilator -O3 --trace -Wall -Wno-fatal --x-assign 1 -cc -y $(.RTLDIR) -y $(.TBDIR) -CFLAGS "-std=c++11 -O3 -DDPI_DLLISPEC= -DDPI_DLLESPEC=" -Mdir $(.VOBJ)
 
 #--------------------------------------------------
 # C++ build
