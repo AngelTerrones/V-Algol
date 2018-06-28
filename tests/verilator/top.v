@@ -24,10 +24,14 @@
 module top #(
              parameter [31:0] HART_ID         = 0,
              parameter [31:0] RESET_ADDR      = 32'h8000_0000,
-             parameter [0:0]  ENABLE_COUNTERS = 1
+             parameter [0:0]  ENABLE_COUNTERS = 1,
+             parameter [31:0] MEM_SIZE        = 32'h0100_0000
              )(
                input wire clk_i,
-               input wire rst_i
+               input wire rst_i,
+               input wire xint_meip_i,
+               input wire xint_mtip_i,
+               input wire xint_msip_i
                );
     //--------------------------------------------------------------------------
     /*AUTOWIRE*/
@@ -61,14 +65,14 @@ module top #(
                    .wbm_dat_i   (wbm_dat_i),
                    .wbm_ack_i   (wbm_ack),
                    .wbm_err_i   (0),
-                   .xint_meip_i (0),
-                   .xint_mtip_i (0),
-                   .xint_msip_i (0));
+                   .xint_meip_i (xint_meip_i),
+                   .xint_mtip_i (xint_mtip_i),
+                   .xint_msip_i (xint_msip_i));
     //
     ram #(/*AUTOINSTPARAM*/
           // Parameters
-          .ADDR_WIDTH (24),
-          .BASE_ADDR  (32'h8000_0000)
+          .ADDR_WIDTH($clog2(MEM_SIZE)), // 16 MB
+          .BASE_ADDR(RESET_ADDR)
           ) memory (/*AUTOINST*/
                     // Outputs
                     .wbs_dat_o      (wbm_dat_i),

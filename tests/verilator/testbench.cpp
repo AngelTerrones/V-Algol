@@ -46,11 +46,14 @@
 #define MEMSTART 0x80000000u    // Initial address
 #define MEMSZ    0x01000000u    // size: 16 MB
 // -----------------------------------------------------------------------------
-#define MEMORY m_top->top->memory->mem
 // syscall (benchmarks)
 #define SYSCALL  64
 #define TOHOST   0x80001000u
 #define FROMHOST 0x80001040u
+// For interrupt simulation
+#define XINT_S   0x80002000u
+#define XINT_T   0x80002004u
+#define XINT_E   0x80002008u
 
 // -----------------------------------------------------------------------------
 // DPI function
@@ -86,7 +89,7 @@ private:
                 if (ok) {
                         printf(ANSI_COLOR_GREEN "Simulation done. Time %u\n" ANSI_COLOR_RESET, time);
                         exit_code = 0;
-                } else if (time < max_time) {
+                } else if (time < max_time || max_time == 0) {
                         printf(ANSI_COLOR_RED "Simulation error. Exit code: %08X. Time: %u\n" ANSI_COLOR_RESET, m_exitCode, time);
                         exit_code = 1;
                 } else {
@@ -119,6 +122,13 @@ private:
                 return _exit;
         }
         // -----------------------------------------------------------------------------
+        //
+        void CheckInterrupts() {
+                m_top->xint_meip_i = dpi_read_word(XINT_E) != 0;
+                m_top->xint_mtip_i = dpi_read_word(XINT_T) != 0;
+                m_top->xint_msip_i = dpi_read_word(XINT_S) != 0;
+        }
+        // -----------------------------------------------------------------------------
         // For benchmarks, prints data from syscall 64.
         void SyscallPrint(const uint32_t base_addr) const {
                 const uint64_t data_addr = dpi_read_word(base_addr + 16); // dword 2: offset = 16 bytes.
@@ -133,15 +143,21 @@ public:
         CORETB(): Testbench(TBFREQ, TBTS), m_exitCode(-1) {}
         // -----------------------------------------------------------------------------
         // Run the CPU model.
-        int SimulateCore(const std::string &progfile, const unsigned long max_time=1000000L){
+        int SimulateCore(const std::string &progfile, const unsigned long max_time=1000000L) {
                 bool ok = false;
                 bool notimeout = max_time == 0;
+                // Initial values
+                m_top->xint_meip_i = 0;
+                m_top->xint_mtip_i = 0;
+                m_top->xint_msip_i = 0;
+                //
                 dpi_load_mem(progfile.data());
                 printf(ANSI_COLOR_YELLOW "Executing file: %s\n" ANSI_COLOR_RESET, progfile.c_str());
                 while ((getTime() <= max_time || notimeout) && !Verilated::gotFinish()) {
                         Tick();
                         if (CheckTOHOST(ok))
                                 break;
+                        CheckInterrupts();
                 }
                 Tick();
                 return PrintExitMessage(ok, getTime(), max_time);
