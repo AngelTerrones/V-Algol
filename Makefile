@@ -7,13 +7,13 @@ SHELL=bash
 # ------------------------------------------------------------------------------
 .PROJECTNAME = Algol
 # ------------------------------------------------------------------------------
-.SUBMAKE				= $(MAKE) --no-print-directory
-.PWD						= $(shell pwd)
-.BFOLDER				= build
-.RVTESTSF				= tests/riscv-tests
+.SUBMAKE	    = $(MAKE) --no-print-directory
+.PWD		    = $(shell pwd)
+.BFOLDER	    = build
+.RVTESTSF	    = tests/riscv-tests
 .RVBENCHMARKSF	= tests/benchmarks
-.MKTB						= tests/verilator/build.mk
-.TBEXE					= $(.BFOLDER)/$(.PROJECTNAME).exe --timeout 50000000 --file
+.MKTB			= tests/verilator/build.mk
+.TBEXE			= $(.BFOLDER)/$(.PROJECTNAME).exe --timeout 50000000 --file
 
 # ------------------------------------------------------------------------------
 # targets
