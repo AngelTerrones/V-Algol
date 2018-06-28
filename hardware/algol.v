@@ -175,12 +175,13 @@ module algol #(
     reg         is_mcause, is_mtval, is_mip, is_cycle, is_instret, is_cycleh, is_instreth;
     // extra
     // verilator lint_off UNUSED
-    reg [31:0]  pend_int;
+    wire [31:0] pend_int;
     // verilator lint_off UNUSED
     reg         csr_wen;
     reg [31:0]  csr_wdata;
     reg         csr_wcmd, csr_scmd, csr_ccmd; // CSR commands: read/write, set, clear
-    reg         exception, interrupt, trap_valid;
+    reg         exception, trap_valid;
+    wire        interrupt;
     // for memory access
     reg [31:0]  mdat_o, mdat_i, ld_addr, st_addr;
     reg [3:0]   msel_o;
@@ -898,10 +899,8 @@ module algol #(
         end
     end
     // interrupts
-    always @(posedge clk_i) begin
-        pend_int  <= mstatus_mie ? mip & mie : 32'b0;
-        interrupt <= |{pend_int[11], pend_int[7], pend_int[3]};
-    end
+    assign pend_int  = mstatus_mie ? mip & mie : 32'b0;
+    assign interrupt = |{pend_int[11], pend_int[7], pend_int[3]};
     // auxiliar write data
     always @(posedge clk_i) begin
         case (1'b1)
