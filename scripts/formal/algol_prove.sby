@@ -1,0 +1,13 @@
+[options]
+mode prove
+depth 30
+
+[engines]
+smtbmc yices
+
+[script]
+read_verilog -formal algol.v
+prep -top algol
+
+[files]
+hardware/algol.v
