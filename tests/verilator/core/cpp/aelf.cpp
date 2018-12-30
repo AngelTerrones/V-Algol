@@ -1,17 +1,5 @@
 /*
  * Copyright (C) 2018 Angel Terrones <angelterrones@gmail.com>
- *
- * Permission to use, copy, modify, and/or distribute this software for any
- * purpose with or without fee is hereby granted, provided that the above
- * copyright notice and this permission notice appear in all copies.
- *
- * THE SOFTWARE IS PROVIDED "AS IS" AND THE AUTHOR DISCLAIMS ALL WARRANTIES
- * WITH REGARD TO THIS SOFTWARE INCLUDING ALL IMPLIED WARRANTIES OF
- * MERCHANTABILITY AND FITNESS. IN NO EVENT SHALL THE AUTHOR BE LIABLE FOR
- * ANY SPECIAL, DIRECT, INDIRECT, OR CONSEQUENTIAL DAMAGES OR ANY DAMAGES
- * WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS, WHETHER IN AN
- * ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF
- * OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  */
 
 // File: elf.cpp
@@ -74,18 +62,8 @@ void elfread(const char *filename, ELFSECTION **&sections) {
         }
         // Check ELF type
         Elf_Kind ek = elf_kind(elf);
-        switch (ek) {
-        case ELF_K_AR:
-                fprintf(stderr, "[ELFLOADER] AR archive. Abort\n");
-                exit(EXIT_FAILURE);
-        case ELF_K_ELF:
-                // OK, continue.
-                break;
-        case ELF_K_NONE:
-                fprintf(stderr, "[ELFLOADER] ELF data ???\n");
-                break;
-        default:
-                fprintf(stderr, "[ELFLOADER] Unknown file. Abort\n");
+        if (ek != ELF_K_ELF) {
+                fprintf(stderr, "[ELFLOADER] Not an ELF object. Abort\n");
                 exit(EXIT_FAILURE);
         }
         // Get ELF executable header
@@ -207,4 +185,58 @@ void elfread(const char *filename, ELFSECTION **&sections) {
         // nuke
         elf_end(elf);
         close(fd);
+}
+
+uint32_t getSymbol (const char *filename, const char *symbolName) {
+        // Initialize library
+        if (elf_version(EV_CURRENT) == EV_NONE) {
+                fprintf(stderr, "[ELFLOADER] ELF library initialization failed: %s\n", elf_errmsg(-1));
+                perror("[OS]");
+                exit(EXIT_FAILURE);
+        }
+        // open filename
+        int fd = open(filename, O_RDONLY | O_BINARY, 0);
+        if (fd < 0) {
+                fprintf(stderr, "[ELFLOADER] Unable to open file: %s\n", filename);
+                perror("[OS]");
+                exit(EXIT_FAILURE);
+        }
+        Elf *elf = elf_begin(fd, ELF_C_READ, nullptr);
+        if (elf == nullptr) {
+                fprintf(stderr, "[ELFLOADER] elf_begin(): %s\n", elf_errmsg(-1));
+                exit(EXIT_FAILURE);
+        }
+        // Check ELF type
+        Elf_Kind ek = elf_kind(elf);
+        if (ek != ELF_K_ELF) {
+                fprintf(stderr, "[ELFLOADER] Not an ELF object. Abort\n");
+                exit(EXIT_FAILURE);
+        }
+        // get section list
+        Elf_Scn *scn = NULL;
+        GElf_Shdr shdr;
+        char *name;
+        while ((scn = elf_nextscn(elf, scn)) != NULL) {
+                gelf_getshdr(scn, &shdr);
+                if (shdr.sh_type == SHT_SYMTAB) {
+                        Elf_Data *edata = elf_getdata(scn, NULL);
+                        uint32_t symbolCount = shdr.sh_size / shdr.sh_entsize;
+                        GElf_Sym sym;
+                        for (uint32_t ii = 0; ii < symbolCount; ii++) {
+                                gelf_getsym(edata, ii, &sym);
+                                name = elf_strptr(elf, shdr.sh_link, sym.st_name);
+                                if (std::strcmp(symbolName, name) == 0) {
+                                        // printf("Symbol found: 0x%jx\n", sym.st_value);
+                                        elf_end(elf);
+                                        close(fd);
+                                        return sym.st_value;
+                                }
+                        }
+                }
+        }
+        // FAILURE: return -1
+        fprintf(stderr, "[ELFLOADER] Symbol %s does not exists.\n", elf_errmsg(-1));
+        elf_end(elf);
+        close(fd);
+        return -1;
 }
