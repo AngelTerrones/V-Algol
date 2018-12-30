@@ -26,3 +26,19 @@ output/
 
 # emacs files
 *.el
+
+# log files
+*.log
+
+# bck files
+*_old*
+
+# Verilator
+obj_dir
+*.exe
+
+# test repo
+tests/riscv-compliance
+
+# zephyr
+software/zephyr
