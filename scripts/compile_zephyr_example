@@ -1,0 +1,10 @@
+#!/usr/bin/env bash
+
+# $1 is the name of the example.
+
+source $ZEPHYR/zephyr-env.sh
+rm -rf $ROOT/build/zephyr-$1
+mkdir -p $ROOT/build/zephyr-$1
+cd $ROOT/build/zephyr-$1
+cmake -DBOARD=m2sf_algol $ZEPHYR/samples/$1
+make -j4
