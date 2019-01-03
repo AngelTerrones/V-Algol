@@ -12,6 +12,7 @@
 module top #(
              parameter [31:0] HART_ID         = 0,
              parameter [31:0] RESET_ADDR      = 32'h8000_0000,
+             parameter        FAST_SHIFT      = 0,
              parameter [0:0]  ENABLE_COUNTERS = 1,
              parameter [31:0] MEM_SIZE        = 32'h0100_0000
              )(
@@ -38,7 +39,9 @@ module top #(
     algol #(/*AUTOINSTPARAM*/
             // Parameters
             .HART_ID         (HART_ID[31:0]),
-            .RESET_ADDR      (RESET_ADDR[31:0])
+            .RESET_ADDR      (RESET_ADDR[31:0]),
+            .FAST_SHIFT      (FAST_SHIFT),
+            .ENABLE_COUNTERS (ENABLE_COUNTERS)
             ) cpu (/*AUTOINST*/
                    // Outputs
                    .mem_address       (mem_address[31:0]),
