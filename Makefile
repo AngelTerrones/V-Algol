@@ -21,8 +21,9 @@ ROOT            = $(shell pwd)
 .COREDHRY = $(ROOT)/$(.BFOLDER)/dhrystone/dhrystone-core.elf
 .SOCDHRY  = $(ROOT)/$(.BFOLDER)/dhrystone/dhrystone-soc.elf
 
-# use custom compiler for compliance and dhrystone...
-export RISCV_PREFIX ?= riscv-none-embed-
+# RISC-V GCC. No need to add RISCV_PATH to $PATH
+RISCV_PATH ?= /opt/gnu-mcu-eclipse/riscv-none-gcc/8.1.0-2-20181019-0952/bin
+export RISCV_PREFIX ?= $(RISCV_PATH)/riscv-none-embed-
 export ROOT
 
 # zephyr
