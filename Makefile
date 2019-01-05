@@ -84,6 +84,9 @@ soc-sim-zephyr-synchronization: .soc .bootloader .zephyr-synchronization
 	./$(.SOCEXE) --file $(.BFOLDER)/zephyr-synchronization/zephyr/zephyr.elf --use-uart
 
 # extras
+extra:
+	+@$(.SUBMAKE) -C tests/extra-tests
+
 .bootloader:
 	+@$(.SUBMAKE) -C software/bootloader all
 
