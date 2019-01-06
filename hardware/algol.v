@@ -112,7 +112,8 @@ module algol #(
     wire [4:0]  rs1, rs2, rd;
     reg [31:0]  rs1_d, rs2_d, rf_wdata;
     reg         rf_we;
-    reg [31:0]  regfile [0:31];
+    reg [31:0]  regfile1 [0:31];
+    reg [31:0]  regfile2 [0:31];
     //
     wire        interrupt;
     reg [31:0]  mem_dat_o, mem_dat_i;
@@ -199,60 +200,6 @@ module algol #(
             //
             csr_address <= instruction_q[31:20];
         end // if (cpu_state == cpu_state_fetch && mem_valid)
-        //
-        if (rst) begin
-            /*AUTORESET*/
-            // Beginning of autoreset for uninitialized flops
-            inst_add    <= 1'h0;
-            inst_addi   <= 1'h0;
-            inst_and    <= 1'h0;
-            inst_andi   <= 1'h0;
-            inst_auipc  <= 1'h0;
-            inst_beq    <= 1'h0;
-            inst_bge    <= 1'h0;
-            inst_bgeu   <= 1'h0;
-            inst_blt    <= 1'h0;
-            inst_bltu   <= 1'h0;
-            inst_bne    <= 1'h0;
-            inst_csrrc  <= 1'h0;
-            inst_csrrci <= 1'h0;
-            inst_csrrs  <= 1'h0;
-            inst_csrrsi <= 1'h0;
-            inst_csrrw  <= 1'h0;
-            inst_csrrwi <= 1'h0;
-            inst_fence  <= 1'h0;
-            inst_jal    <= 1'h0;
-            inst_jalr   <= 1'h0;
-            inst_lb     <= 1'h0;
-            inst_lbu    <= 1'h0;
-            inst_lh     <= 1'h0;
-            inst_lhu    <= 1'h0;
-            inst_lui    <= 1'h0;
-            inst_lw     <= 1'h0;
-            inst_or     <= 1'h0;
-            inst_ori    <= 1'h0;
-            inst_sb     <= 1'h0;
-            inst_sh     <= 1'h0;
-            inst_sll    <= 1'h0;
-            inst_slli   <= 1'h0;
-            inst_slt    <= 1'h0;
-            inst_slti   <= 1'h0;
-            inst_sltiu  <= 1'h0;
-            inst_sltu   <= 1'h0;
-            inst_sra    <= 1'h0;
-            inst_srai   <= 1'h0;
-            inst_srl    <= 1'h0;
-            inst_srli   <= 1'h0;
-            inst_sub    <= 1'h0;
-            inst_sw     <= 1'h0;
-            inst_xbreak <= 1'h0;
-            inst_xcall  <= 1'h0;
-            inst_xor    <= 1'h0;
-            inst_xori   <= 1'h0;
-            inst_xret   <= 1'h0;
-            inst_wfi    <= 1'h0;
-            // End of automatics
-        end
     end
     // immediate values
     always @(posedge clk) begin
@@ -286,15 +233,21 @@ module algol #(
     assign rs1 = instruction_q[19:15];
     assign rs2 = instruction_q[24:20];
     assign rd  = instruction[11:7];
+    // split the RF to force BRAM in vivado.
     always @(posedge clk) begin
         if (cpu_state == cpu_state_fetch) begin
-            rs1_d <= (|rs1)? regfile[rs1] : 0;
-            rs2_d <= (|rs2)? regfile[rs2] : 0;
+            rs1_d <= (|rs1)? regfile1[rs1] : 0;
+        end
+        if (rf_we && |rd) begin
+            regfile1[rd] <= rf_wdata;
         end
     end
     always @(posedge clk) begin
+        if (cpu_state == cpu_state_fetch) begin
+            rs2_d <= (|rs2)? regfile2[rs2] : 0;
+        end
         if (rf_we && |rd) begin
-            regfile[rd] <= rf_wdata;
+            regfile2[rd] <= rf_wdata;
         end
     end
     //
@@ -304,35 +257,31 @@ module algol #(
     end
     always @(*) begin
         rf_we    = 0;
-        rf_wdata = 32'hx;
+        if (cpu_state == cpu_state_wb) rf_we = |{is_j, is_l, is_csr, is_logic, is_cmp, is_shift, is_add};
 
-        if (cpu_state == cpu_state_wb) begin
-            rf_we = 1;
-            case (1'b1)
-                is_j: begin
-                    rf_wdata = pc4;
-                end
-                is_l: begin
-                    rf_wdata = mem_dat_i;
-                end
-                is_csr: begin
-                    rf_wdata = csr_dat;
-                end
-                is_logic: begin
-                    rf_wdata = logic_out;
-                end
-                is_cmp: begin
-                    rf_wdata = {31'b0, cmp_out};
-                end
-                is_shift: begin
-                    rf_wdata = shift_out;
-                end
-                default: begin
-                    rf_we    = is_add;
-                    rf_wdata = add_out;
-                end
-            endcase
-        end
+        case (1'b1)
+            is_j: begin
+                rf_wdata = pc4;
+            end
+            is_l: begin
+                rf_wdata = mem_dat_i;
+            end
+            is_csr: begin
+                rf_wdata = csr_dat;
+            end
+            is_logic: begin
+                rf_wdata = logic_out;
+            end
+            is_cmp: begin
+                rf_wdata = {31'b0, cmp_out};
+            end
+            is_shift: begin
+                rf_wdata = shift_out;
+            end
+            default: begin
+                rf_wdata = add_out;
+            end
+        endcase
     end
     // =========================================================================
     // FSM
@@ -351,25 +300,30 @@ module algol #(
                 cpu_state_nxt = cpu_state_fetch;
             end
             cpu_state_fetch: begin
-                if (mem_ready)                cpu_state_nxt = cpu_state_execute;
-                if (mem_error | if_unaligned) cpu_state_nxt = cpu_state_trap;
+                case (1'b1)
+                    mem_ready:                cpu_state_nxt = cpu_state_execute;
+                    mem_error | if_unaligned: cpu_state_nxt = cpu_state_trap;
+                endcase
             end
             cpu_state_execute: begin
-                cpu_state_nxt = cpu_state_trap;
-                if (is_shift) begin
-                    cpu_state_nxt = cpu_state;
-                    if (shift_done || FAST_SHIFT) cpu_state_nxt = cpu_state_wb;
-                end
-                if (use_alu)      cpu_state_nxt = cpu_state_wb;
-                if (inst_fence)   cpu_state_nxt = cpu_state_fetch;
-                if (inst_wfi)     cpu_state_nxt = cpu_state_fetch;
-                if (is_l || is_s) cpu_state_nxt = cpu_state_mem;
-                if (is_csr)       cpu_state_nxt = cpu_state_csr;
-                if (interrupt)    cpu_state_nxt = cpu_state_trap;
+                case (1'b1)
+                    is_shift: begin
+                        if (shift_done || FAST_SHIFT) cpu_state_nxt = cpu_state_wb;
+                    end
+                    use_alu:      cpu_state_nxt = cpu_state_wb;
+                    inst_fence:   cpu_state_nxt = cpu_state_fetch;
+                    inst_wfi:     cpu_state_nxt = cpu_state_fetch;
+                    is_l || is_s: cpu_state_nxt = cpu_state_mem;
+                    is_csr:       cpu_state_nxt = cpu_state_csr;
+                    default:      cpu_state_nxt = cpu_state_trap;
+                endcase
+                if (interrupt) cpu_state_nxt = cpu_state_trap;
             end
             cpu_state_mem: begin
-                if (mem_ready)                 cpu_state_nxt = cpu_state_wb;
-                if (mem_error | mem_unaligned) cpu_state_nxt = cpu_state_trap;
+                case (1'b1)
+                    mem_ready:                 cpu_state_nxt = cpu_state_wb;
+                    mem_error | mem_unaligned: cpu_state_nxt = cpu_state_trap;
+                endcase
             end
             cpu_state_csr: begin
                 cpu_state_nxt = cpu_state_wb;
@@ -450,7 +404,6 @@ module algol #(
     end
     // cmp_b
     always @(*) begin
-        (* parallel_case *)
         case (1'b1)
             inst_slti | inst_sltiu: cmp_b = imm_i;
             default:                cmp_b = rs2_d;
@@ -494,29 +447,25 @@ module algol #(
                 default:                shift_out <= $signed(alu_a) >>> alu_b[4:0];
             endcase
         end else begin
+            shift_done  <= 0;
             if (shift_state == 0) begin
                 shift_cnt  <= alu_b[4:0];
                 shift_out  <= alu_a;
-                shift_done <= 0;
 
                 if (is_shift && cpu_state == cpu_state_execute) begin
                     shift_state <= 1;
                 end
             end else if(shift_state == 1) begin
+                shift_cnt <= shift_cnt - 1;
                 if (shift_cnt == 0) begin
                     shift_done  <= 1;
                     shift_state <= 2;
                 end else begin
-                    shift_cnt <= shift_cnt - 1;
-                    (* parallel_case *)
-                    case (1'b1)
-                        |{inst_slli, inst_sll}: shift_out <= shift_out << 1;
-                        default:                shift_out <= {(inst_sra || inst_srai) && shift_out[31], shift_out[31:1]};
-                    endcase
+                    shift_out <= {(inst_sra || inst_srai) && shift_out[31], shift_out[31:1]};
+                    if (|{inst_slli, inst_sll}) shift_out <= shift_out << 1;
                 end
             end else begin // if (shift_state == 1)
                 shift_state <= 0;
-                shift_done  <= 0;
             end
             //
             if (rst) begin
@@ -528,20 +477,27 @@ module algol #(
     // handle load/store instructions
     // =========================================================================
     // Format data: write
+    reg [3:0] mem_sel_b, mem_sel_h;
+    always @(*) begin
+        case (add_out[1:0])
+            2'b00: mem_sel_b = 4'b0001;
+            2'b01: mem_sel_b = 4'b0010;
+            2'b10: mem_sel_b = 4'b0100;
+            2'b11: mem_sel_b = 4'b1000;
+        endcase
+    end
+    always @(*) begin
+        mem_sel_h = add_out[1] ? 4'b1100 : 4'b0011;
+    end
     always @(*) begin
         case (1'b1)
             inst_sb: begin
                 mem_dat_o = {4{rs2_d[7:0]}};
-                case (add_out[1:0])
-                    2'b00: mem_sel_o = 4'b0001;
-                    2'b01: mem_sel_o = 4'b0010;
-                    2'b10: mem_sel_o = 4'b0100;
-                    2'b11: mem_sel_o = 4'b1000;
-                endcase
+                mem_sel_o = mem_sel_b;
             end
             inst_sh: begin
                 mem_dat_o = {2{rs2_d[15:0]}};
-                mem_sel_o = add_out[1] ? 4'b1100 : 4'b0011;
+                mem_sel_o = mem_sel_h;
             end
             inst_sw: begin
                 mem_dat_o = rs2_d;
@@ -716,8 +672,8 @@ module algol #(
     // ---------------------------------------------------------------------
     // CSR: write registers
     always @(*) begin
+        csr_dat_i = {27'b0, instruction[19:15]};
         if (is_csrx) csr_dat_i = rs1_d;
-        else         csr_dat_i = {27'b0, instruction[19:15]};
     end
     always @(*) begin
         case (1'b1)
@@ -737,7 +693,7 @@ module algol #(
             endcase
             if (rst) cycle <= 0;
         end else begin
-            cycle <= 0;
+            cycle <= 64'hx;
         end
     end
     // Instruction counter
@@ -789,7 +745,7 @@ module algol #(
             mcause_mcode     <= csr_wdata[3:0];
         end
         //
-        if (rst) mcause_interrupt <= 0; // FIXME is this needed?
+        if (rst) mcause_interrupt <= 0; // This is not needed. But this reduces LUT count (._. )
     end
     // mtval
     always @(posedge clk) begin
@@ -831,7 +787,6 @@ module algol #(
     end
     //
     always @(posedge clk) begin
-        (* parallel_case *)
         case (cpu_state)
             cpu_state_fetch: begin
                 edata <= pc;
@@ -839,20 +794,16 @@ module algol #(
                 if (mem_error) ecode <= E_INST_ACCESS_FAULT;
             end
             cpu_state_execute: begin
-                case (1'b1)
-                    inst_xcall: begin
-                        edata <= 0;
-                        ecode <= E_ECALL_FROM_M;
-                    end
-                    inst_xbreak: begin
-                        edata <= pc;
-                        ecode <= E_BREAKPOINT;
-                    end
-                    default: begin
-                        edata <= instruction;
-                        ecode <= E_ILLEGAL_INST;
-                    end
-                endcase
+                edata <= instruction;
+                ecode <= E_ILLEGAL_INST;
+                if (inst_xcall) begin
+                    edata <= 0;
+                    ecode <= E_ECALL_FROM_M;
+                end
+                if (inst_xbreak) begin
+                    edata <= pc;
+                    ecode <= E_BREAKPOINT;
+                end
                 if (interrupt) begin
                     edata <= instruction;
                     case (1'b1)
