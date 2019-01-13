@@ -82,6 +82,9 @@ soc-sim-zephyr-philosophers: .soc .bootloader .zephyr-philosophers
 soc-sim-zephyr-synchronization: .soc .bootloader .zephyr-synchronization
 	./$(.SOCEXE) --file $(.BFOLDER)/zephyr-synchronization/zephyr/zephyr.elf --use-uart
 
+build-core: .core
+build-soc: .soc
+
 # extras
 extra:
 	+@$(.SUBMAKE) -C tests/extra-tests
