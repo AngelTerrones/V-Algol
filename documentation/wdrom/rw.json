@@ -1,0 +1,11 @@
+{signal: [
+  {name: 'clk',         wave: 'p.|...|.|...'},
+  {name: 'mem_address', wave: 'x3|.x.|3|.x.', data:['read address', 'write address']}, 
+  {name: 'mem_wdata',   wave: 'x.|...|4|.x.', data: ['write data']}, 
+  {name: 'mem_wsel',    wave: 'x0|.x.|2|.x.', data:['byte_select']}, 
+  {name: 'mem_valid',   wave: '01|.0.|1|.0.'}, 
+  {},
+  {name: 'mem_rdata',   wave: 'x.|5x.|.|...', data:['data']},
+  {name: 'mem_ready',   wave: '0.|1x0|.|0..'},
+  {name: 'mem_error',   wave: '0.|0..|.|1x0'}
+]}
