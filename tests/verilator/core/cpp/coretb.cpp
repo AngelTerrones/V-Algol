@@ -119,12 +119,9 @@ void CORETB::DumpSignature(const std::string &signature) {
                 fprintf(stderr, ANSI_COLOR_RED "Unable to open the signature file. \n" ANSI_COLOR_RESET);
                 return;
         }
-        // Signature from riscv-compliance is N lines of 4 words per line.
-        // MSB ---- LSB
-        for (uint32_t idx = m_begin_signature; idx < m_end_signature; idx = idx + 16) {
-                for (uint32_t offset = 3; offset != 0xffffffff; offset--)
-                        fprintf(fp, "%08x", ram_v_dpi_read_word(idx + (4*offset)));
-                fprintf(fp, "\n");
+        // Signature from riscv-compliance: 1 word per line
+        for (uint32_t idx = m_begin_signature; idx < m_end_signature; idx = idx + 4) {
+                fprintf(fp, "%08x\n", ram_v_dpi_read_word(idx));
         }
         fclose(fp);
 }
