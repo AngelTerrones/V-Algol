@@ -114,6 +114,7 @@ module algol #(
     reg         rf_we;
     reg [31:0]  regfile1 [0:31];
     reg [31:0]  regfile2 [0:31];
+    reg         is_imm;
     //
     wire        interrupt;
     reg [31:0]  mem_dat_o, mem_dat_i;
@@ -199,6 +200,7 @@ module algol #(
             inst_wfi    <= instruction_q == 32'b00010000010100000000000001110011;
             //
             csr_address <= instruction_q[31:20];
+            is_imm      <= instruction_q[6:0] == 7'b0010011;
         end // if (cpu_state == cpu_state_fetch && mem_valid)
     end
     // immediate values
@@ -258,36 +260,33 @@ module algol #(
     always @(*) begin
         rf_we    = 0;
         if (cpu_state == cpu_state_wb) rf_we = |{is_j, is_l, is_csr, is_logic, is_cmp, is_shift, is_add};
+    end
 
+    reg [31:0] rf_tmp1, rf_tmp2;
+    always @(*) begin
         case (1'b1)
-            is_j: begin
-                rf_wdata = pc4;
-            end
-            is_l: begin
-                rf_wdata = mem_dat_i;
-            end
-            is_csr: begin
-                rf_wdata = csr_dat;
-            end
-            is_logic: begin
-                rf_wdata = logic_out;
-            end
-            is_cmp: begin
-                rf_wdata = {31'b0, cmp_out};
-            end
-            is_shift: begin
-                rf_wdata = shift_out;
-            end
-            default: begin
-                rf_wdata = add_out;
-            end
+            is_j:     begin rf_tmp1 = pc4;       end
+            is_l:     begin rf_tmp1 = mem_dat_i; end
+            is_csr:   begin rf_tmp1 = csr_dat;   end
+            default:  begin rf_tmp1 = logic_out; end
         endcase
+    end
+    always @(*) begin
+        case (1'b1)
+            is_cmp:   begin rf_tmp2 = {31'b0, cmp_out}; end
+            is_shift: begin rf_tmp2 = shift_out;        end
+            default:  begin rf_tmp2 = add_out;          end
+        endcase
+    end
+    always @(*) begin
+        if (is_j || is_l || is_csr || is_logic) rf_wdata = rf_tmp1;
+        else rf_wdata = rf_tmp2;
     end
     // =========================================================================
     // FSM
     wire use_alu;
     assign use_alu = is_add | is_j | is_b | is_cmp | is_logic;
-    always @(posedge clk) begin
+    always @(posedge clk or posedge rst) begin
         if (rst) cpu_state <= cpu_state_reset;
         else     cpu_state <= cpu_state_nxt;
     end
@@ -346,24 +345,26 @@ module algol #(
     always @(*) begin
         pc4 = pc + 4;
     end
-    always @(posedge clk) begin
-        if (cpu_state == cpu_state_execute) begin
-            if (inst_fence) pc <= pc4;
-            if (inst_wfi)   pc <= pc4;
-        end
-        if (cpu_state == cpu_state_wb) begin
-            if (is_j || b_taken) begin
-                if (!wb_error) pc <= {add_out[31:1], 1'b0};
-            end else  begin
-                pc <= pc4;
+    always @(posedge clk or posedge rst) begin
+        if (rst) begin
+            pc <= RESET_ADDR;
+        end else begin
+            if (cpu_state == cpu_state_execute) begin
+                if (inst_fence) pc <= pc4;
+                if (inst_wfi)   pc <= pc4;
+            end
+            if (cpu_state == cpu_state_wb) begin
+                if (is_j || b_taken) begin
+                    if (!wb_error) pc <= {add_out[31:1], 1'b0};
+                end else  begin
+                    pc <= pc4;
+                end
+            end
+            if (cpu_state == cpu_state_trap) begin
+                pc <= mtvec;
+                if (inst_xret) pc <= mepc;
             end
         end
-        if (cpu_state == cpu_state_trap) begin
-            pc <= mtvec;
-            if (inst_xret) pc <= mepc;
-        end
-
-        if (rst) pc <= RESET_ADDR;
     end
     // =========================================================================
     // jumps
@@ -376,13 +377,11 @@ module algol #(
     reg [31:0] alu_a, alu_b, add_out, logic_out, shift_out;
     reg [31:0] cmp_b;
     reg        cmp_out;
-    wire       is_or, is_and, is_imm;
+    wire       is_or, is_and;
     reg        is_lt, is_ltu, is_eq;
 
-    assign is_imm = instruction[6:0] == 7'b0010011;
     // input a
     always @(*) begin
-        (* parallel_case *)
         case (1'b1)
             inst_lui:                     alu_a = 0;
             inst_auipc | inst_jal | is_b: alu_a = pc;
@@ -391,7 +390,6 @@ module algol #(
     end
     // input b
     always @(*) begin
-        (* parallel_case *)
         case (1'b1)
             inst_lui | inst_auipc:     alu_b = imm_u;
             inst_jal:                  alu_b = imm_j;
@@ -435,44 +433,54 @@ module algol #(
         cmp_out = (is_lt && (inst_slt || inst_slti)) || (is_ltu && (inst_sltu || inst_sltiu));
     end
 
-    reg [4:0] shift_cnt;
-    reg       shift_done;
-    reg [1:0] shift_state;
-    always @(posedge clk) begin
+    reg shift_done;
+    generate
         if (FAST_SHIFT) begin
-            (* parallel_case *)
-            case (1'b1)
-                |{inst_slli, inst_sll}: shift_out <= alu_a << alu_b[4:0];
-                |{inst_srli, inst_srl}: shift_out <= alu_a >> alu_b[4:0];
-                default:                shift_out <= $signed(alu_a) >>> alu_b[4:0];
-            endcase
-        end else begin
-            shift_done  <= 0;
-            if (shift_state == 0) begin
-                shift_cnt  <= alu_b[4:0];
-                shift_out  <= alu_a;
-
-                if (is_shift && cpu_state == cpu_state_execute) begin
-                    shift_state <= 1;
-                end
-            end else if(shift_state == 1) begin
-                shift_cnt <= shift_cnt - 1;
-                if (shift_cnt == 0) begin
-                    shift_done  <= 1;
-                    shift_state <= 2;
-                end else begin
-                    shift_out <= {(inst_sra || inst_srai) && shift_out[31], shift_out[31:1]};
-                    if (|{inst_slli, inst_sll}) shift_out <= shift_out << 1;
-                end
-            end else begin // if (shift_state == 1)
-                shift_state <= 0;
+            always @(*) begin
+                shift_done = 0;
             end
-            //
-            if (rst) begin
-                shift_state <= 0;
+
+            always @(posedge clk) begin
+                (* parallel_case *)
+                case (1'b1)
+                    |{inst_slli, inst_sll}: shift_out <= alu_a << alu_b[4:0];
+                    |{inst_srli, inst_srl}: shift_out <= alu_a >> alu_b[4:0];
+                    default:                shift_out <= $signed(alu_a) >>> alu_b[4:0];
+                endcase
+            end
+        end else begin
+            reg [4:0] shift_cnt;
+            reg [1:0] shift_state;
+
+            always @(posedge clk or posedge rst) begin
+                if (rst) begin
+                    shift_state <= 0;
+                end else begin
+                    shift_done  <= 0;
+                    if (shift_state == 0) begin
+                        shift_cnt  <= alu_b[4:0];
+                        shift_out  <= alu_a;
+
+                        if (is_shift && cpu_state == cpu_state_execute) begin
+                            shift_state <= 1;
+                        end
+                    end else if(shift_state == 1) begin
+                        shift_cnt <= shift_cnt - 1;
+                        if (shift_cnt == 0) begin
+                            shift_done  <= 1;
+                            shift_state <= 2;
+                        end else begin
+                            shift_out <= {(inst_sra || inst_srai) && shift_out[31], shift_out[31:1]};
+                            if (|{inst_slli, inst_sll}) shift_out <= shift_out << 1;
+                        end
+                    end else begin // if (shift_state == 1)
+                        shift_state <= 0;
+                    end
+                    //
+                end
             end
         end
-    end
+    endgenerate
     // =========================================================================
     // handle load/store instructions
     // =========================================================================
@@ -682,52 +690,60 @@ module algol #(
             default  : csr_wdata = csr_dat_i;
         endcase
     end
-    // cycle
-    always @(posedge clk) begin
-        if (ENABLE_COUNTERS) begin
-            (* parallel_case *)
-            case (1'b1)
-                csr_wen && is_cycle:  cycle[31:0]  <= csr_wdata;
-                csr_wen && is_cycleh: cycle[63:32] <= csr_wdata;
-                default:              cycle <= cycle + 1;
-            endcase
-            if (rst) cycle <= 0;
-        end else begin
-            cycle <= 64'hx;
-        end
-    end
-    // Instruction counter
-    always @(posedge clk) begin
-        if (ENABLE_COUNTERS) begin
-            (* parallel_case *)
-            case(1'b1)
-                csr_wen && is_instret:  instret[31:0]  <= csr_wdata;
-                csr_wen && is_instreth: instret[63:32] <= csr_wdata;
-                cpu_state == cpu_state_wb && !wb_error: instret <= instret + 1;
-                cpu_state == cpu_state_execute && (inst_fence || inst_wfi): instret <= instret + 1;
-                cpu_state == cpu_state_trap && (inst_xcall || inst_xret || inst_xbreak): instret <= instret + 1;
-            endcase
-            if (rst) instret <= 0;
-        end else begin
-            instret <= 64'hx;
-        end
-    end
-    // mstatus
-    always @(posedge clk) begin
-        if (take_trap) begin
-            mstatus_mpie <= mstatus_mie;
-            mstatus_mie  <= 0;
-        end else if (inst_xret) begin
-            mstatus_mpie <= 1;
-            mstatus_mie  <= mstatus_mpie;
-        end else if (csr_wen && is_mstatus) begin
-            mstatus_mpie <= csr_wdata[7];
-            mstatus_mie  <= csr_wdata[3];
-        end
 
+    generate
+        if (ENABLE_COUNTERS) begin
+            // cycle
+            always @(posedge clk or posedge rst) begin
+                if (rst) begin
+                    cycle <= 0;
+                end else begin
+                    //(* parallel_case *)
+                    case (1'b1)
+                        csr_wen && is_cycle:  cycle[31:0]  <= csr_wdata;
+                        csr_wen && is_cycleh: cycle[63:32] <= csr_wdata;
+                        default:              cycle <= cycle + 1;
+                    endcase
+                end
+            end
+            // Instruction counter
+            always @(posedge clk or posedge rst) begin
+                if (rst) begin
+                    instret <= 0;
+                end else begin
+                    (* parallel_case *)
+                    case(1'b1)
+                        csr_wen && is_instret:                                                   instret[31: 0]  <= csr_wdata;
+                        csr_wen && is_instreth:                                                  instret[63: 32] <= csr_wdata;
+                        cpu_state == cpu_state_wb && !wb_error:                                  instret <= instret + 1;
+                        cpu_state == cpu_state_execute && (inst_fence || inst_wfi):              instret <= instret + 1;
+                        cpu_state == cpu_state_trap && (inst_xcall || inst_xret || inst_xbreak): instret <= instret + 1;
+                    endcase
+                end
+            end
+        end else begin
+            always @(posedge clk) begin
+                cycle   <= 64'hx;
+                instret <= 64'hx;
+            end
+        end
+    endgenerate
+    // mstatus
+    always @(posedge clk or posedge rst) begin
         if (rst) begin
             mstatus_mpie <= 0;
             mstatus_mie  <= 0;
+        end else begin
+            if (take_trap) begin
+                mstatus_mpie <= mstatus_mie;
+                mstatus_mie  <= 0;
+            end else if (inst_xret) begin
+                mstatus_mpie <= 1;
+                mstatus_mie  <= mstatus_mpie;
+            end else if (csr_wen && is_mstatus) begin
+                mstatus_mpie <= csr_wdata[7];
+                mstatus_mie  <= csr_wdata[3];
+            end
         end
     end
     // mepc
@@ -736,16 +752,18 @@ module algol #(
         else if (csr_wen && is_mepc) _mepc <= csr_wdata[31:2];
     end
     // mcause
-    always @(posedge clk) begin
-        if (take_trap) begin
-            mcause_interrupt <= interrupt;
-            mcause_mcode     <= ecode;
-        end else if (csr_wen && is_mcause) begin
-            mcause_interrupt <= csr_wdata[31];
-            mcause_mcode     <= csr_wdata[3:0];
+    always @(posedge clk or posedge rst) begin
+        if (rst) begin
+            mcause_interrupt <= 0; // This is not needed. But this reduces LUT count (._. )
+        end else begin
+            if (take_trap) begin
+                mcause_interrupt <= interrupt;
+                mcause_mcode     <= ecode;
+            end else if (csr_wen && is_mcause) begin
+                mcause_interrupt <= csr_wdata[31];
+                mcause_mcode     <= csr_wdata[3:0];
+            end
         end
-        //
-        if (rst) mcause_interrupt <= 0; // This is not needed. But this reduces LUT count (._. )
     end
     // mtval
     always @(posedge clk) begin
@@ -753,10 +771,11 @@ module algol #(
         else if (csr_wen && is_mtval) mtval <= csr_wdata;
     end
     // mie
-    always @(posedge clk) begin
-        if (csr_wen && is_mie) {mie_meie, mie_mtie, mie_msie} <= {csr_wdata[11], csr_wdata[7], csr_wdata[3]};
-
-        if (rst) {mie_meie, mie_mtie, mie_msie} <= 0;
+    always @(posedge clk or posedge rst) begin
+        if (rst)
+            {mie_meie, mie_mtie, mie_msie} <= 0;
+        else if (csr_wen && is_mie)
+            {mie_meie, mie_mtie, mie_msie} <= {csr_wdata[11], csr_wdata[7], csr_wdata[3]};
     end
     // others
     always @(posedge clk) begin
