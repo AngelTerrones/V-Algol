@@ -1,3 +1,7 @@
+/*
+ * Copyright (C) 2018 Angel Terrones <angelterrones@gmail.com>
+ */
+
 OUTPUT_ARCH( "riscv" )
 ENTRY(_start)
 

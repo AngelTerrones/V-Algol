@@ -1,0 +1,15 @@
+#!/usr/bin/env bash
+
+ZEPHYROS=$ROOT/software/zephyr
+
+if [ ! -d "$ZEPHYROS" ]; then
+    echo "Downloading zephyr"
+    git clone https://github.com/AngelTerrones/zephyr $ZEPHYROS
+    cd $ZEPHYROS
+    git checkout nht-cores-v1.13.0
+    echo "Done!"
+else
+    cd $ZEPHYROS
+    git checkout nht-cores-v1.13.0
+    echo "Done!"
+fi

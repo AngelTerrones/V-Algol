@@ -1,3 +1,7 @@
+/*
+ * Copyright (C) 2018 Angel Terrones <angelterrones@gmail.com>
+ */
+
 OUTPUT_ARCH( "riscv" )
 ENTRY(_start)
 
@@ -7,17 +11,13 @@ ENTRY(_start)
 SECTIONS
 {
     /*-----------------------------------------------------------------*/
-    . = 0x80000000;
+    . = 0x10000000;
     .text.init : { *(.text.init) }
     . = ALIGN(0x1000);
-    .tohost : { *(.tohost) }
-    . = ALIGN(0x1000);
-    .xint : { *(.xint) }
-    . = ALIGN(0x1000);
     .text : { *(.text) }
-    . = ALIGN(0x1000);
     /*-----------------------------------------------------------------*/
     /* data segment */
+    . = ALIGN(0x1000);
     .data : { *(.data) }
     .sdata : {
     __global_pointer$ = . + 0x800;
@@ -32,4 +32,7 @@ SECTIONS
     .bss : { *(.bss) }
     /* End of uninitalized data segment */
     _end = .;
+    . = ALIGN(0x1000);
+    . = . + 0x1000;  /*4K stack*/
+    _sp = .;
 }
