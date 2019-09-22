@@ -34,7 +34,7 @@ module timer (
         endcase
     end
     // write
-    always @(posedge clk) begin
+    always @(posedge clk or posedge rst) begin
         if (timer_valid && timer_ready && (&timer_wsel)) begin
             // verilator lint_off CASEINCOMPLETE
             case (timer_address[3:2])
@@ -49,12 +49,12 @@ module timer (
     always @(*) begin
         timer_error = 0;  // TODO: assert error for unaligned access?
     end
-    always @(posedge clk) begin
+    always @(posedge clk or posedge rst) begin
         timer_ready <= timer_valid && !(|timer_address[1:0]);
         if (rst) timer_ready <= 0;
     end
     // counter
-    always @(posedge clk) begin
+    always @(posedge clk or posedge rst) begin
         mtime <= mtime + 1;
         if (rst) mtime <= 0;
     end

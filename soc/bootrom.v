@@ -37,7 +37,7 @@ module bootrom #(
     always @(*) begin
         rom_error = 0;
     end
-    always @(posedge clk) begin
+    always @(posedge clk or posedge rst) begin
         rom_ready <= rom_valid && !rom_ready && !(|rom_address[1:0]);
         if (rst) rom_ready <= 0;
     end

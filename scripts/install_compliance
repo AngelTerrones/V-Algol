@@ -10,6 +10,9 @@ if [ ! -d "$RVCOMPLIANCE" ]; then
     echo "Done!"
 else
     cd $RVCOMPLIANCE
+    echo "Moving to branch 'nht-cores'"
     git checkout nht-cores
+    echo "Updating repository"
+    git pull
     echo "Done!"
 fi

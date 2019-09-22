@@ -33,7 +33,7 @@ module ram #(
     always @(*) begin
         ram_error = 0;
     end
-    always @(posedge clk) begin
+    always @(posedge clk or posedge rst) begin
         ram_ready <= ram_valid && !ram_ready;
         if (rst) ram_ready <= 0;
     end

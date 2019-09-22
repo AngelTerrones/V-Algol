@@ -48,7 +48,7 @@ module uart (
         endcase
     end
     // write
-    always @(posedge clk) begin
+    always @(posedge clk or posedge rst) begin
         if (uart_valid && uart_ready && (&uart_wsel)) begin
             (* parallel_case *)
             case (1'b1)
@@ -64,7 +64,7 @@ module uart (
     always @(*) begin
         uart_error = 0; // TODO: assert error for unaligned access?
     end
-    always @(posedge clk) begin
+    always @(posedge clk or posedge rst) begin
         uart_ready <= uart_valid && !(|uart_address[1:0]);
         if (rst) uart_ready <= 0;
     end
@@ -74,7 +74,7 @@ module uart (
     reg [31:0] rx_div_cnt;
     reg [1:0]  uart_rx_sync;
 
-    always @(posedge clk) begin
+    always @(posedge clk or posedge rst) begin
         if (rst) begin
             rx_state     <= 0;
             rx_div_cnt   <= 0;
@@ -122,7 +122,7 @@ module uart (
     reg        init;
     assign uart_tx = tx_pattern[0];
 
-    always @(posedge clk) begin
+    always @(posedge clk or posedge rst) begin
         tx_div_cnt <= tx_div_cnt + 1;
         tx_start <= uart_valid && uart_ready && is_tx_data && (&uart_wsel);
 
