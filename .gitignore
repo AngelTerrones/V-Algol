@@ -42,3 +42,9 @@ tests/riscv-compliance
 
 # zephyr
 software/zephyr
+
+# vscode
+.vscode
+
+# python virtualenv
+.venv
