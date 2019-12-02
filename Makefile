@@ -51,6 +51,7 @@ help:
 	@echo -e $(BRed)"Setup:"$(Color_Off)
 	@echo -e "- install-compliance:               Clone the riscv-compliance test."
 	@echo -e "- install-zephyr:                   Clone the zephyr repo and chechout the v1.13 branch."
+	@echo -e "- setup-environment:                Create a python3 virtualenv, and installs zephyr's requirements."
 	@echo -e $(BBlue)"Build:"$(Color_Off)
 	@echo -e "- build-core:                       Build C++ core model."
 	@echo -e "- build-soc:                        Build C++ SoC model."
@@ -82,6 +83,12 @@ install-compliance:
 
 install-zephyr:
 	@./scripts/install_zephyr
+
+# ------------------------------------------------------------------------------
+# setup environment
+# ------------------------------------------------------------------------------
+setup-environment:
+	@./scripts/setup_environment.sh
 
 # ------------------------------------------------------------------------------
 # verilator tests
