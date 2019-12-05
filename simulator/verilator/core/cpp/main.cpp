@@ -49,7 +49,7 @@ int main(int argc, char **argv) {
 #endif
         const char* vcdFile = "build/trace_" EXE ".vcd";
         if (trace) {
-                printf("[CORETB] Generate VCD file in build folder\n");
+                printf("[CORETB] Trace file in build folder\n");
                 tb->OpenTrace(vcdFile);
         }
         int exitCode = tb->SimulateCore(s_progfile, timeout, s_signature);
