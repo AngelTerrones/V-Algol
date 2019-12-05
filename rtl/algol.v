@@ -713,11 +713,10 @@ module algol #(
                 end else begin
                     (* parallel_case *)
                     case(1'b1)
-                        csr_wen && is_instret:                                                   instret[31: 0]  <= csr_wdata;
-                        csr_wen && is_instreth:                                                  instret[63: 32] <= csr_wdata;
-                        cpu_state == cpu_state_wb && !wb_error:                                  instret <= instret + 1;
-                        cpu_state == cpu_state_execute && (inst_fence || inst_wfi):              instret <= instret + 1;
-                        cpu_state == cpu_state_trap && (inst_xcall || inst_xret || inst_xbreak): instret <= instret + 1;
+                        csr_wen && is_instret:       instret[31: 0]  <= csr_wdata;
+                        csr_wen && is_instreth:      instret[63: 32] <= csr_wdata;
+                        cpu_state == cpu_state_wb:   instret <= instret + 1;
+                        cpu_state == cpu_state_trap: instret <= instret + 1;
                     endcase
                 end
             end
