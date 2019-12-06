@@ -314,8 +314,8 @@ module algol #(
         csr_dat <= csr_dat_o;
     end
     always @(*) begin
-        rf_we    = 0;
-        if (cpu_state == cpu_state_wb) rf_we = |{is_j, is_l, is_csr, is_logic, is_cmp, is_shift, is_add, is_mul, is_div};
+        rf_we = 0;
+        if (cpu_state == cpu_state_wb) rf_we = !wb_error && |{is_j, is_l, is_csr, is_logic, is_cmp, is_shift, is_add, is_mul, is_div};
     end
 
     reg [31:0] rf_tmp1, rf_tmp2;
