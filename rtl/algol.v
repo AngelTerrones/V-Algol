@@ -593,7 +593,7 @@ module algol #(
     reg         is_misa, is_mhartid, is_mstatus, is_mie, is_mtvec, is_mscratch, is_mepc, is_mcause,
                 is_mtval, is_mip, is_cycle, is_cycleh, is_instret, is_instreth;
     reg         _is_misa, _is_mhartid, _is_mstatus, _is_mie, _is_mtvec, _is_mscratch, _is_mepc, _is_mcause,
-                _is_mtval, _is_mip, _is_cycle, _is_cycleh, _is_instret, _is_instreth;
+                _is_mtval, _is_mip, _is_cycle, _is_cycleh, _is_instret, _is_instreth, _is_mimpid, _is_marchid, _is_mvendorid;
     reg         undef_register;
     //
     reg [31:0]  csr_dat_o, csr_dat_i, csr_wdata, edata;
@@ -634,6 +634,9 @@ module algol #(
         _is_cycleh    = ENABLE_COUNTERS && csr_address == MCYCLEH;
         _is_instret   = ENABLE_COUNTERS && csr_address == MINSTRET;
         _is_instreth  = ENABLE_COUNTERS && csr_address == MINSTRETH;
+        _is_mimpid    = csr_address == MIMPID;
+        _is_marchid   = csr_address == MARCHID;
+        _is_mvendorid = csr_address == MVENDORID;
     end
     always @(posedge clk) begin
         // valid 1st cycle of CSR state
@@ -653,7 +656,8 @@ module algol #(
         is_instreth    <= _is_instreth;
         undef_register <= ~|{_is_misa, _is_mhartid, _is_mstatus, _is_mie, _is_mtvec,
                              _is_mscratch, _is_mepc, _is_mcause, _is_mtval, _is_mip,
-                             _is_cycle, _is_cycleh, _is_instret, _is_instreth};
+                             _is_cycle, _is_cycleh, _is_instret, _is_instreth,
+                             _is_mimpid, _is_marchid, _is_mvendorid};
     end
     // ---------------------------------------------------------------------
     // CSR: read registers
