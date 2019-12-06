@@ -16,6 +16,7 @@ echo -e ${BYellow}"Creating python virtual environment"${Color_Off}
 python3 -m venv $VENV
 echo -e ${BYellow}"Installing zephyr requirements"${Color_Off}
 source $VENV/bin/activate
+pip3 install wheel
 pip3 install -r $(pwd)/software/zephyr/scripts/requirements.txt
 deactivate
 echo -e ${BGreen}"Virtualenv setup: DONE"${Color_Off}
