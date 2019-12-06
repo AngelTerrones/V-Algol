@@ -16,7 +16,8 @@ BOOTLOADER:= -GBOOTLOADER="\"$(ROOT)/build/bootloader/nouart.hex"\"
 OUT			:= $(ROOT)/build
 VOBJ		:= $(OUT)/obj_dir_$(EXE)
 SUBMAKE		:= $(MAKE) --no-print-directory --directory=$(VOBJ) -f
-VERILATE	:= verilator -O3 --trace -Wall -Wno-fatal --x-assign unique -cc -y $(SOCDIR) -y $(HWDIR) \
+NO_WARN     := -Wno-fatal -Wno-DECLFILENAME
+VERILATE	:= verilator -O3 --trace -Wall $(NO_WARN) --x-assign unique -cc -y $(SOCDIR) -y $(HWDIR) \
 					     -CFLAGS "-std=c++11 -O3 -DDPI_DLLISPEC= -DDPI_DLLESPEC=" -Mdir $(VOBJ) $(BOOTLOADER)
 
 #--------------------------------------------------

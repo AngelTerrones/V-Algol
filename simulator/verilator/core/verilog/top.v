@@ -14,6 +14,7 @@ module top #(
              parameter [31:0] RESET_ADDR      = 32'h8000_0000,
              parameter        FAST_SHIFT      = 0,
              parameter [0:0]  ENABLE_COUNTERS = 1,
+             parameter        ENABLE_RV32M    = 1,
              parameter [31:0] MEM_SIZE        = 32'h0100_0000
              )(
                input wire clk,
@@ -41,6 +42,7 @@ module top #(
             .HART_ID         (HART_ID[31:0]),
             .RESET_ADDR      (RESET_ADDR[31:0]),
             .FAST_SHIFT      (FAST_SHIFT),
+            .ENABLE_RV32M    (ENABLE_RV32M),
             .ENABLE_COUNTERS (ENABLE_COUNTERS)
             ) cpu (/*AUTOINST*/
                    // Outputs

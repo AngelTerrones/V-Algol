@@ -24,6 +24,7 @@ module algol #(
                parameter [31:0] HART_ID         = 0,
                parameter [31:0] RESET_ADDR      = 32'h8000_0000,
                parameter        FAST_SHIFT      = 0,
+               parameter        ENABLE_RV32M    = 0,
                parameter        ENABLE_COUNTERS = 0
                )(
                  input wire        clk,
@@ -106,8 +107,10 @@ module algol #(
     reg         inst_csrrw, inst_csrrs, inst_csrrc, inst_csrrwi, inst_csrrsi, inst_csrrci;
     reg         inst_xcall, inst_xbreak, inst_xret;
     reg         inst_wfi;
+    reg         inst_mul, inst_mulh, inst_mulhsu, inst_mulhu, inst_div, inst_divu, inst_rem, inst_remu;
     reg         is_j, is_b, is_l, is_s, is_shift, is_csr, is_csrx, is_csrs, is_csrc;
     reg         is_add, is_logic, is_cmp;
+    reg         is_mul, is_div;
     reg [31:0]  imm_i, imm_s, imm_b, imm_u, imm_j;
     wire [4:0]  rs1, rs2, rd;
     reg [31:0]  rs1_d, rs2_d, rf_wdata;
@@ -199,6 +202,15 @@ module algol #(
             //
             inst_wfi    <= instruction_q == 32'b00010000010100000000000001110011;
             //
+            inst_mul    <= ENABLE_RV32M && instruction_q[6:0] == 7'b0110011 && instruction_q[14:12] == 3'b000 && instruction_q[31:25] == 7'b0000001;
+            inst_mulh   <= ENABLE_RV32M && instruction_q[6:0] == 7'b0110011 && instruction_q[14:12] == 3'b001 && instruction_q[31:25] == 7'b0000001;
+            inst_mulhsu <= ENABLE_RV32M && instruction_q[6:0] == 7'b0110011 && instruction_q[14:12] == 3'b010 && instruction_q[31:25] == 7'b0000001;
+            inst_mulhu  <= ENABLE_RV32M && instruction_q[6:0] == 7'b0110011 && instruction_q[14:12] == 3'b011 && instruction_q[31:25] == 7'b0000001;
+            inst_div    <= ENABLE_RV32M && instruction_q[6:0] == 7'b0110011 && instruction_q[14:12] == 3'b100 && instruction_q[31:25] == 7'b0000001;
+            inst_divu   <= ENABLE_RV32M && instruction_q[6:0] == 7'b0110011 && instruction_q[14:12] == 3'b101 && instruction_q[31:25] == 7'b0000001;
+            inst_rem    <= ENABLE_RV32M && instruction_q[6:0] == 7'b0110011 && instruction_q[14:12] == 3'b110 && instruction_q[31:25] == 7'b0000001;
+            inst_remu   <= ENABLE_RV32M && instruction_q[6:0] == 7'b0110011 && instruction_q[14:12] == 3'b111 && instruction_q[31:25] == 7'b0000001;
+            //
             csr_address <= instruction_q[31:20];
             is_imm      <= instruction_q[6:0] == 7'b0010011;
         end // if (cpu_state == cpu_state_fetch && mem_valid)
@@ -229,7 +241,51 @@ module algol #(
         is_csrs  = |{inst_csrrs, inst_csrrsi};
         is_csrc  = |{inst_csrrc, inst_csrrci};
         is_csrx  = |{inst_csrrw, inst_csrrs, inst_csrrc};
+        is_mul   = |{inst_mul, inst_mulh, inst_mulhsu, inst_mulhu};
+        is_div   = |{inst_div, inst_divu, inst_rem, inst_remu};
     end
+    // =====================================================================
+    // Instantiate
+    wire [31:0] mult_result;
+    wire        mult_ack;
+    wire [31:0] div_result;
+    wire        div_ack;
+
+    generate
+        if (ENABLE_RV32M) begin
+            // mult unit
+            algol_multiplier mult_hw (
+                .clk         (clk),
+                .rst         (rst),
+                .mult_op1    (rs1_d),
+                .mult_op2    (rs2_d),
+                .mult_cmd    (instruction[13:12]),
+                .mult_enable (is_mul & cpu_state == cpu_state_execute),
+                .mult_abort  (0),
+                .mult_result (mult_result),
+                .mult_ack    (mult_ack)
+            );
+
+            // div unit
+            algol_divider div_hw (
+                .clk        (clk),
+                .rst        (rst),
+                .div_op1    (rs1_d),
+                .div_op2    (rs2_d),
+                .div_cmd    (instruction[13:12]),
+                .div_enable (is_div & cpu_state == cpu_state_execute),
+                .div_abort  (0),
+                .div_result (div_result),
+                .div_ack    (div_ack)
+            );
+        end else begin
+            assign mult_result = 32'hdeadf00d;
+            assign mult_ack    = 0;
+            assign div_result  = 32'hdeadf00d;
+            assign div_ack     = 0;
+        end
+    endgenerate
+
     // =====================================================================
     // Register file
     assign rs1 = instruction_q[19:15];
@@ -258,8 +314,8 @@ module algol #(
         csr_dat <= csr_dat_o;
     end
     always @(*) begin
-        rf_we    = 0;
-        if (cpu_state == cpu_state_wb) rf_we = |{is_j, is_l, is_csr, is_logic, is_cmp, is_shift, is_add};
+        rf_we = 0;
+        if (cpu_state == cpu_state_wb) rf_we = !wb_error && |{is_j, is_l, is_csr, is_logic, is_cmp, is_shift, is_add, is_mul, is_div};
     end
 
     reg [31:0] rf_tmp1, rf_tmp2;
@@ -273,9 +329,11 @@ module algol #(
     end
     always @(*) begin
         case (1'b1)
-            is_cmp:   begin rf_tmp2 = {31'b0, cmp_out}; end
-            is_shift: begin rf_tmp2 = shift_out;        end
-            default:  begin rf_tmp2 = add_out;          end
+            is_cmp:    begin rf_tmp2 = {31'b0, cmp_out}; end
+            is_shift:  begin rf_tmp2 = shift_out;        end
+            is_mul:    begin rf_tmp2 = mult_result;      end
+            is_div:    begin rf_tmp2 = div_result;       end
+            default:   begin rf_tmp2 = add_out;          end
         endcase
     end
     always @(*) begin
@@ -308,6 +366,9 @@ module algol #(
                 case (1'b1)
                     is_shift: begin
                         if (shift_done || FAST_SHIFT) cpu_state_nxt = cpu_state_wb;
+                    end
+                    is_mul | is_div: begin
+                        if (mult_ack | div_ack) cpu_state_nxt = cpu_state_wb;
                     end
                     use_alu:      cpu_state_nxt = cpu_state_wb;
                     inst_fence:   cpu_state_nxt = cpu_state_fetch;
@@ -593,7 +654,7 @@ module algol #(
     reg         is_misa, is_mhartid, is_mstatus, is_mie, is_mtvec, is_mscratch, is_mepc, is_mcause,
                 is_mtval, is_mip, is_cycle, is_cycleh, is_instret, is_instreth;
     reg         _is_misa, _is_mhartid, _is_mstatus, _is_mie, _is_mtvec, _is_mscratch, _is_mepc, _is_mcause,
-                _is_mtval, _is_mip, _is_cycle, _is_cycleh, _is_instret, _is_instreth;
+                _is_mtval, _is_mip, _is_cycle, _is_cycleh, _is_instret, _is_instreth, _is_mimpid, _is_marchid, _is_mvendorid;
     reg         undef_register;
     //
     reg [31:0]  csr_dat_o, csr_dat_i, csr_wdata, edata;
@@ -634,6 +695,9 @@ module algol #(
         _is_cycleh    = ENABLE_COUNTERS && csr_address == MCYCLEH;
         _is_instret   = ENABLE_COUNTERS && csr_address == MINSTRET;
         _is_instreth  = ENABLE_COUNTERS && csr_address == MINSTRETH;
+        _is_mimpid    = csr_address == MIMPID;
+        _is_marchid   = csr_address == MARCHID;
+        _is_mvendorid = csr_address == MVENDORID;
     end
     always @(posedge clk) begin
         // valid 1st cycle of CSR state
@@ -653,7 +717,8 @@ module algol #(
         is_instreth    <= _is_instreth;
         undef_register <= ~|{_is_misa, _is_mhartid, _is_mstatus, _is_mie, _is_mtvec,
                              _is_mscratch, _is_mepc, _is_mcause, _is_mtval, _is_mip,
-                             _is_cycle, _is_cycleh, _is_instret, _is_instreth};
+                             _is_cycle, _is_cycleh, _is_instret, _is_instreth,
+                             _is_mimpid, _is_marchid, _is_mvendorid};
     end
     // ---------------------------------------------------------------------
     // CSR: read registers
@@ -713,11 +778,10 @@ module algol #(
                 end else begin
                     (* parallel_case *)
                     case(1'b1)
-                        csr_wen && is_instret:                                                   instret[31: 0]  <= csr_wdata;
-                        csr_wen && is_instreth:                                                  instret[63: 32] <= csr_wdata;
-                        cpu_state == cpu_state_wb && !wb_error:                                  instret <= instret + 1;
-                        cpu_state == cpu_state_execute && (inst_fence || inst_wfi):              instret <= instret + 1;
-                        cpu_state == cpu_state_trap && (inst_xcall || inst_xret || inst_xbreak): instret <= instret + 1;
+                        csr_wen && is_instret:       instret[31: 0]  <= csr_wdata;
+                        csr_wen && is_instreth:      instret[63: 32] <= csr_wdata;
+                        cpu_state == cpu_state_wb:   instret <= instret + 1;
+                        cpu_state == cpu_state_trap: instret <= instret + 1;
                     endcase
                 end
             end
@@ -950,5 +1014,127 @@ module algol #(
     wire _unused = &{dbg_ascii_state};
     // =====================================================================
 endmodule
+
+module algol_multiplier (
+                          input wire        clk,
+                          input wire        rst,
+                          input wire [31:0] mult_op1,
+                          input wire [31:0] mult_op2,
+                          input wire [1:0]  mult_cmd,
+                          input wire        mult_enable,
+                          input wire        mult_abort,
+                          output reg [31:0] mult_result,
+                          output reg        mult_ack
+                          );
+    //--------------------------------------------------------------------------
+    wire       is_any_mulh;
+    wire       is_op1_signed, is_op2_signed;
+    reg [32:0] op1_q, op2_q;
+    reg [63:0] result;
+    reg [1:0]  active;
+    //
+    assign is_any_mulh   = |mult_cmd;
+    assign is_op1_signed = mult_cmd[1] ^ mult_cmd[0];
+    assign is_op2_signed = mult_cmd == 2'b01;
+    //
+    always @(posedge clk) begin
+        // verilator lint_off WIDTH
+        if (is_op1_signed) begin
+            op1_q <= $signed(mult_op1);
+        end else begin
+            op1_q <= $unsigned(mult_op1);
+        end
+        //
+        if (is_op2_signed) begin
+            op2_q <= $signed(mult_op2);
+        end else begin
+            op2_q <= $unsigned(mult_op2);
+        end
+        // verilator lint_on WIDTH
+        result      <= $signed(op1_q) * $signed(op2_q);
+        mult_result <= (is_any_mulh) ? result[63:32] : result[31:0];
+    end
+    //
+    always @(posedge clk or posedge rst) begin
+        if (rst || mult_ack || mult_abort) begin
+            active   <= 0;
+            mult_ack <= 0;
+        end else begin
+            active   <= {active[0], mult_enable};
+            mult_ack <= active[1];
+        end
+    end
+    //--------------------------------------------------------------------------
+endmodule
+
+module algol_divider (
+                       input wire        clk,
+                       input wire        rst,
+                       input wire [31:0] div_op1,
+                       input wire [31:0] div_op2,
+                       input wire [1:0]  div_cmd,
+                       input wire        div_enable,
+                       input wire        div_abort,
+                       output reg [31:0] div_result,
+                       output reg        div_ack
+                       );
+    //--------------------------------------------------------------------------
+    wire       is_div, is_divu, is_rem;
+    reg [31:0] dividend;
+    reg [62:0] divisor;
+    reg [31:0] quotient;
+    reg [31:0] quotient_mask;
+    reg        start, start_q, running, outsign;
+    //
+    assign is_div  = div_cmd == 2'b00;
+    assign is_divu = div_cmd == 2'b01;
+    assign is_rem  = div_cmd == 2'b10;
+    //
+    always @(posedge clk or posedge rst) begin
+        if (rst || div_abort) begin
+            start   <= 0;
+            start_q <= 0;
+        end else begin
+            start   <= div_enable && !div_ack;
+            start_q <= start;
+        end
+    end
+    //
+    always @(posedge clk or posedge rst) begin
+        if (rst || div_abort) begin
+            div_ack <= 0;
+            running <= 0;
+        end else begin
+            div_ack <= 0;
+            // verilator lint_off WIDTH
+            if (start && !start_q) begin
+                running       <= 1;
+                dividend      <= ((is_div || is_rem) && div_op1[31]) ? -div_op1 : div_op1;
+                divisor       <= (((is_div || is_rem) && div_op2[31]) ? -div_op2 : div_op2) << 31;
+                outsign       <= (is_div && (div_op1[31] != div_op2[31]) && |div_op2) || (is_rem && div_op1[31]);
+                quotient      <= 0;
+                quotient_mask <= 1 << 31;
+            end else if (quotient_mask == 0 && running) begin
+                running <= 0;
+                div_ack <= 1;
+                if (is_div || is_divu) begin
+                    div_result <= outsign ? -quotient : quotient;
+                end else begin
+                    div_result <= outsign ? -dividend : dividend;
+                end
+            end else begin
+                if (divisor <= dividend) begin
+                    dividend <= dividend - divisor;
+                    quotient <= quotient | quotient_mask;
+                end
+                divisor <= divisor >> 1;
+                quotient_mask <= quotient_mask >> 1;
+            end
+            // verilator lint_on WIDTH
+        end
+    end
+    //--------------------------------------------------------------------------
+endmodule
+
 `default_nettype wire
 // EOF

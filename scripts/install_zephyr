@@ -1,15 +1,22 @@
 #!/usr/bin/env bash
 
+Color_Off='\033[0m'
+BGreen='\033[1;32m'
+BYellow='\033[1;33m'
+
 ZEPHYROS=$ROOT/software/zephyr
 
 if [ ! -d "$ZEPHYROS" ]; then
-    echo "Downloading zephyr"
+    echo -e ${BYellow}"Downloading zephyr"${Color_Off}
     git clone https://github.com/AngelTerrones/zephyr $ZEPHYROS
     cd $ZEPHYROS
     git checkout nht-cores-v1.13.0
-    echo "Done!"
+    echo -e ${BGreen}"Done!"${Color_Off}
 else
     cd $ZEPHYROS
+    echo -e ${BYellow}"Moving to branch 'nht-cores'"${Color_Off}
     git checkout nht-cores-v1.13.0
-    echo "Done!"
+    echo -e ${BYellow}"Updating repository"${Color_Off}
+    git pull
+    echo -e ${BGreen}"Done!"${Color_Off}
 fi

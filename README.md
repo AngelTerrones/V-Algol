@@ -1,81 +1,72 @@
 ![logo](documentation/img/logo.png)
 
-# ALGOL - A RISC-V CPU
+Algol is a CPU core that implements the [RISC-V RV32IM Instruction Set][1].
 
-Algol is a CPU core that implements the [RISC-V RV32I Instruction Set](http://riscv.org/).
-
-Algol is free and open hardware licensed under the [MIT license](https://en.wikipedia.org/wiki/MIT_License).
-
+Algol is free and open hardware licensed under the [MITlicense](https://en.wikipedia.org/wiki/MIT_License).
 
 **Table of Contents**
 <!-- TOC -->
 
-- [ALGOL - A RISC-V CPU](#algol---a-risc-v-cpu)
-    - [CPU core details](#cpu-core-details)
-    - [Project Details](#project-details)
-    - [Directory Layout](#directory-layout)
-    - [RISC-V toolchain](#risc-v-toolchain)
-    - [Verilog module parameters](#verilog-module-parameters)
-    - [Native memory interface](#native-memory-interface)
-    - [Simulation](#simulation)
-        - [Dependencies for simulation](#dependencies-for-simulation)
-        - [Download the compliance tests](#download-the-compliance-tests)
-        - [Define `RVGCC_PATH`](#define-rvgcc_path)
-        - [Generate the C++ model and compile it](#generate-the-c-model-and-compile-it)
-        - [Run the compliance tests](#run-the-compliance-tests)
-        - [Simulate execution of a single ELF file](#simulate-execution-of-a-single-elf-file)
-            - [Parameters of the C++ model](#parameters-of-the-c-model)
-    - [License](#license)
+- [CPU core details](#cpu-core-details)
+- [Project Details](#project-details)
+- [Directory Layout](#directory-layout)
+- [RISC-V toolchain](#risc-v-toolchain)
+- [Verilog module parameters](#verilog-module-parameters)
+- [Native memory interface](#native-memory-interface)
+- [Simulation](#simulation)
+    - [Dependencies for simulation](#dependencies-for-simulation)
+    - [Download the compliance tests](#download-the-compliance-tests)
+    - [Define `RVGCC_PATH`](#define-rvgcc_path)
+    - [Generate the C++ model and compile it](#generate-the-c-model-and-compile-it)
+    - [Run the compliance tests](#run-the-compliance-tests)
+    - [Simulate execution of a single ELF file](#simulate-execution-of-a-single-elf-file)
+        - [Parameters of the C++ model](#parameters-of-the-c-model)
 
 <!-- /TOC -->
 
 ## CPU core details
 
-- RISC-V RV32I ISA.
-- Machine [privilege mode](https://riscv.org/specifications/privileged-isa/).
-  Current version: v1.11.
-- Support for external interrupts, as described in the [privilege mode manual](https://riscv.org/specifications/privileged-isa/).
+- RISC-V RV32I[M] ISA.
+- Machine [privilege mode][2], version: v1.11.
 - Multi-cycle datapath, with an average Cycles per Instruction (CPI) of 3.8.
-- Single memory port using a native interface.
+- Single memory port using the a native interface.
 
 ## Project Details
 
-- Simulation done in C++ using [Verilator](https://www.veripool.org/wiki/verilator).
-- [Toolchain](http://riscv.org/software-tools/) using gcc.
-- [Validation suit](https://github.com/riscv/riscv-compliance) written in assembly.
+- Simulation done in C++ using [Verilator][4]
+- [Toolchain][7] using gcc.
+- [Validation suit][5] written in assembly.
 
 ## Directory Layout
 
-- `documentation`: LaTeX source files for the CPU manuals (TODO).
+- `documentation`: laTeX source files for the CPU manuals (TODO).
 - `rtl`: CPU source files written in Verilog.
-- `scripts`: Scripts for Formal Verification (FV), installation of tests and zephyr OS.
+- `scripts`: scripts for installation of compliance tests, and setup development environment.
 - `simulator`: verilator testbench, written in C++.
-- `soc`: verilog source files for a basic SoC demo (2018 RISC-V softcore contest).
-- `software`:
-  - `bootloader`: source files for the SoC bootloader.
-  - `dhrystone`: benchmark for the core and SoC.
-  - `bin2hex.py`: script to convert a bin file to an hex
-  - `loader.py`: loader and serial monitor for the SoC.
-- `tests`: Assembly test environment for the CPU.
-  - `extra_tests`: Aditional test for the software, timer and external interrupt interface.
+- `soc`: source files, written in Verilog, for a simple SoC demo.
+- `software`: support files for the SoC (bootloader, loader), and the dhrystone benchmark.
+- `tests`: assembly test environment for the CPU.
+  - `extra_tests`: aditional test for the software, timer and external interrupt interface.
 - `LICENSE`: MIT license.
-- `README.md`: This file.
+- `README.md`: this file.
 
 ## RISC-V toolchain
 
-The easy way to get the toolchain is to download a prebuilt version from [SiFive](https://www.sifive.com/boards).
+The easy way to get the toolchain is to download a prebuilt version from [SiFive][6].
 
-The version used to compile the tests is [riscv64-unknown-elf-gcc-8.3.0-2019.08.0](https://static.dev.sifive.com/dev-tools/riscv64-unknown-elf-gcc-8.3.0-2019.08.0-x86_64-linux-ubuntu14.tar.gz)
+The version used to compile the tests is [riscv64-unknown-elf-gcc-8.3.0-2019.08.0][7]
 
 ## Verilog module parameters
 
 The following parameters can be used to configure the cpu core.
 
-- `HART_ID` (default = 0): This sets the ID of the core.
-- `RESET_ADDR` (default = 0x80000000): The start address of the program.
-- `FAST_SHIFT` (default = 0): Enable the barrel shifter implementation for shift operations.
-- `ENABLE_COUNTERS` (default = 0): Add support for the `CYCLE[H]` and
-`INSTRET[H]` counters. If set to zero, reading the counters will return an undefined value.
+- `HART_ID`: (default = 0) This sets the ID of the core (for multi-core applications).
+- `RESET_ADDR`: (default = 0x80000000) The start address of the program.
+- `FAST_SHIFT`: (default = 0) Enable the use of a barrel shifter.
+- `ENABLE_RV32M`: (default = 0) Enable the hardware multiplier and divider.
+- `ENABLE_COUNTERS`: (default = 1) Add support for the `CYCLE[H]` and
+`INSTRET[H]` counters. If set to zero, reading the counters will return zero or
+a random number.
 
 ## Native memory interface
 
@@ -103,36 +94,36 @@ ignored. In write transaction, `mem_wsel` is not zero, and `mem_rdata` is ignore
 ## Simulation
 ### Dependencies for simulation
 
-- [Verilator](https://www.veripool.org/wiki/verilator). Minimum version: 4.0.
+- [Verilator][4]. Minimum version: 4.0.
 - libelf.
-- The official RISC-V [toolchain](https://www.sifive.com/boards).
+- The official RISC-V [toolchain][7].
 
 ### Download the compliance tests
 
-To download the [riscv-compliance](https://github.com/riscv/riscv-compliance) repository:
-
+To download the [riscv-compliance][5] repository:
 > make install-compliance
 
-This downloads a fork of [riscv-compliance](https://github.com/riscv/riscv-compliance) with added support for this core.
+This downloads a fork of [riscv-compliance][5] with added support for this core.
 
 ### Define `RVGCC_PATH`
 Before running the compliance test suit, benchmarks and extra-tests, define the variable `RVGCC_PATH` to the `bin` folder of the toolchain:
-
-> export RVGCC_PATH=/path/to/bin/folder/
+> export RVGCC_PATH=/path/to/bin/folder/of/riscv-gcc
 
 ### Generate the C++ model and compile it
 To compile the verilator testbench, execute the following command in the root folder of
 the project:
-
 > $ make build-core
 
 ### Run the compliance tests
 To perform the simulation, execute the following command in the root folder of
 the project:
+> $ make core-sim-compliance
 
-> $ make core-sim-compliance-rv32i
+All tests should pass, with exception of the `breakpoint` test: no debug module has been implemented.
 
 ### Simulate execution of a single ELF file
+To perform the simulation, execute the following commands in the root folder of
+the project:
 
 To execute a single `.elf` file:
 
@@ -141,12 +132,14 @@ To execute a single `.elf` file:
 #### Parameters of the C++ model
 
 - `file`: RISC-V ELF file to execute.
-- `timeout (optional)`: Maximum simulation time before aborting.
-- `signature (optional)`: Write memory dump to a file. For verification purposes.
-- `trace (optional)`: Enable VCD dumps. Writes the output file to `build/trace_core.vcd`.
+- `timeout`: (Optional) Maximum simulation time before aborting.
+- `signature`: (Optional) Write memory dump to a file. For verification purposes.
+- `trace`: (Optional) Enable VCD dumps. Writes the output file to `build/trace_core.vcd`.
 
-## License
-
-Copyright (c) 2019 Angel Terrones (<angelterrones@gmail.com>).
-
-Release under the [MIT License](LICENSE).
+[1]: https://riscv.org/specifications/
+[2]: https://riscv.org/specifications/privileged-isa/
+[3]: MITlicense.md
+[4]: https://www.veripool.org/wiki/verilator
+[5]: https://github.com/riscv/riscv-compliance
+[6]: https://www.sifive.com/boards
+[7]: https://static.dev.sifive.com/dev-tools/riscv64-unknown-elf-gcc-8.3.0-2019.08.0-x86_64-linux-ubuntu14.tar.gz
