@@ -11,8 +11,8 @@
 
 module algolsoc #(
                   parameter [31:0] RESET_ADDR      = 32'h0000_0000,
-                  parameter        FAST_SHIFT      = 0,
-                  parameter        ENABLE_COUNTERS = 0,
+                  parameter        FAST_SHIFT      = 1,
+                  parameter        ENABLE_COUNTERS = 1,
                   parameter        ENABLE_RV32M    = 1,
                   parameter        RAM_AW          = 15,
                   parameter        ROM_AW          = 8,
