@@ -105,7 +105,7 @@ core-sim-compliance-rv32i: build-core
 
 core-sim-compliance-rv32mi: export TARGET_FOLDER=$(VCOREF)
 core-sim-compliance-rv32mi: build-core
-	@$(SUBMAKE) -C $(RVCOMPLIANCE) variant RISCV_TARGET=algol RISCV_DEVICE=rv32i RISCV_ISA=rv32mi
+	-@$(SUBMAKE) -C $(RVCOMPLIANCE) variant RISCV_TARGET=algol RISCV_DEVICE=rv32i RISCV_ISA=rv32mi
 
 core-sim-compliance-rv32ui: export TARGET_FOLDER=$(VCOREF)
 core-sim-compliance-rv32ui: build-core
@@ -121,7 +121,7 @@ core-sim-compliance-rv32Zifencei: build-core
 
 core-sim-compliance-rv32im: export TARGET_FOLDER=$(VCOREF)
 core-sim-compliance-rv32im: build-core
-	@$(SUBMAKE) -C $(RVCOMPLIANCE) variant RISCV_TARGET=algol RISCV_DEVICE=rv32im RISCV_ISA=rv32im
+	-@$(SUBMAKE) -C $(RVCOMPLIANCE) variant RISCV_TARGET=algol RISCV_DEVICE=rv32im RISCV_ISA=rv32im
 
 # ----------------------------------------------------------
 # SOC
@@ -134,7 +134,7 @@ soc-sim-compliance-rv32i: build-soc .bootloader
 
 soc-sim-compliance-rv32mi: export TARGET_FOLDER=$(VSOCF)
 soc-sim-compliance-rv32mi: build-soc .bootloader
-	@$(SUBMAKE) -C $(RVCOMPLIANCE) variant RISCV_TARGET=algolsoc RISCV_DEVICE=rv32i RISCV_ISA=rv32mi
+	-@$(SUBMAKE) -C $(RVCOMPLIANCE) variant RISCV_TARGET=algolsoc RISCV_DEVICE=rv32i RISCV_ISA=rv32mi
 
 soc-sim-compliance-rv32ui: export TARGET_FOLDER=$(VSOCF)
 soc-sim-compliance-rv32ui: build-soc .bootloader
@@ -150,7 +150,7 @@ soc-sim-compliance-rv32Zifencei: build-soc .bootloader
 
 soc-sim-compliance-rv32im: export TARGET_FOLDER=$(VSOCF)
 soc-sim-compliance-rv32im: build-soc .bootloader
-	@$(SUBMAKE) -C $(RVCOMPLIANCE) variant RISCV_TARGET=algolsoc RISCV_DEVICE=rv32im RISCV_ISA=rv32im
+	-@$(SUBMAKE) -C $(RVCOMPLIANCE) variant RISCV_TARGET=algolsoc RISCV_DEVICE=rv32im RISCV_ISA=rv32im
 
 # ----------------------------------------------------------
 # Dhrystone
