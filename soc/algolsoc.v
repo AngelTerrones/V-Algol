@@ -13,6 +13,7 @@ module algolsoc #(
                   parameter [31:0] RESET_ADDR      = 32'h0000_0000,
                   parameter        FAST_SHIFT      = 0,
                   parameter        ENABLE_COUNTERS = 0,
+                  parameter        ENABLE_RV32M    = 1,
                   parameter        RAM_AW          = 15,
                   parameter        ROM_AW          = 8,
                   parameter        BOOTLOADER      = "bootloader.hex"
@@ -64,6 +65,7 @@ module algolsoc #(
             .HART_ID         (0),
             .RESET_ADDR      (RESET_ADDR),
             .FAST_SHIFT      (FAST_SHIFT),
+            .ENABLE_RV32M    (ENABLE_RV32M),
             .ENABLE_COUNTERS (ENABLE_COUNTERS)
             ) algol0 (// Outputs
                       .mem_address (master_address[31:0]),

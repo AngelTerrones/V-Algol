@@ -56,19 +56,21 @@ help:
 	@echo -e "- build-core:                       Build C++ core model."
 	@echo -e "- build-soc:                        Build C++ SoC model."
 	@echo -e $(BGreen)"Execute tests:"$(Color_Off)
-	@echo -e "- core-sim-compliance:              Execute the rv32i, rv32ui, rv32mi, rv32Zicsr and rv32Zifencei tests."
+	@echo -e "- core-sim-compliance:              Execute the rv32i, rv32ui, rv32mi, rv32im, rv32Zicsr and rv32Zifencei tests."
 	@echo -e "- core-sim-compliance-rv32i:        Execute the RV32I compliance tests."
 	@echo -e "- core-sim-compliance-rv32mi:       Execute machine mode compliance tests."
 	@echo -e "- core-sim-compliance-rv32ui:       Execute the RV32I compliance tests (redundant)."
 	@echo -e "- core-sim-compliance-rv32Zicsr:    Execute the RV32Zicsr compliance tests."
 	@echo -e "- core-sim-compliance-rv32Zifencei: Execute the RV32Zifencei compliance test."
+	@echo -e "- core-sim-compliance-rv32im:        Execute the RV32M compliance tests."
 	@echo -e "- core-sim-dhrystone:               Execute the Dhrystone benchmark"
-	@echo -e "- soc-sim-compliance:               Execute the rv32i, rv32ui, rv32mi, rv32Zicsr and rv32Zifencei tests."
+	@echo -e "- soc-sim-compliance:               Execute the rv32i, rv32ui, rv32mi, rv32im, rv32Zicsr and rv32Zifencei tests."
 	@echo -e "- soc-sim-compliance-rv32i:         Execute the RV32I compliance tests."
 	@echo -e "- soc-sim-compliance-rv32mi:        Execute machine mode compliance tests."
 	@echo -e "- soc-sim-compliance-rv32ui:        Execute the RV32I compliance tests (redundant)."
 	@echo -e "- soc-sim-compliance-rv32Zicsr:     Execute the RV32Zicsr compliance tests."
 	@echo -e "- soc-sim-compliance-rv32Zifencei:  Execute the RV32Zifencei compliance test."
+	@echo -e "- soc-sim-compliance-rv32im:        Execute the RV32M compliance tests."
 	@echo -e "- soc-sim-dhrystone:                Execute the Dhrystone benchmark"
 	@echo -e "- soc-sim-zephyr-hello_world:       Execute the hello world example"
 	@echo -e "- soc-sim-zephyr-philosophers:      Execute the philosophers example"
@@ -95,7 +97,7 @@ setup-environment:
 # ------------------------------------------------------------------------------
 # Core
 core-sim-compliance: export TARGET_FOLDER=$(VCOREF)
-core-sim-compliance: core-sim-compliance-rv32i core-sim-compliance-rv32ui core-sim-compliance-rv32Zicsr core-sim-compliance-rv32Zifencei core-sim-compliance-rv32mi
+core-sim-compliance: core-sim-compliance-rv32i core-sim-compliance-rv32ui core-sim-compliance-rv32Zicsr core-sim-compliance-rv32Zifencei core-sim-compliance-rv32mi core-sim-compliance-rv32im
 
 core-sim-compliance-rv32i: export TARGET_FOLDER=$(VCOREF)
 core-sim-compliance-rv32i: build-core
@@ -103,24 +105,28 @@ core-sim-compliance-rv32i: build-core
 
 core-sim-compliance-rv32mi: export TARGET_FOLDER=$(VCOREF)
 core-sim-compliance-rv32mi: build-core
-	@$(SUBMAKE) -C $(RVCOMPLIANCE) variant RISCV_TARGET=algol RISCV_DEVICE=rv32mi RISCV_ISA=rv32mi
+	@$(SUBMAKE) -C $(RVCOMPLIANCE) variant RISCV_TARGET=algol RISCV_DEVICE=rv32i RISCV_ISA=rv32mi
 
 core-sim-compliance-rv32ui: export TARGET_FOLDER=$(VCOREF)
 core-sim-compliance-rv32ui: build-core
-	@$(SUBMAKE) -C $(RVCOMPLIANCE) variant RISCV_TARGET=algol RISCV_DEVICE=rv32ui RISCV_ISA=rv32ui
+	@$(SUBMAKE) -C $(RVCOMPLIANCE) variant RISCV_TARGET=algol RISCV_DEVICE=rv32i RISCV_ISA=rv32ui
 
 core-sim-compliance-rv32Zicsr: export TARGET_FOLDER=$(VCOREF)
 core-sim-compliance-rv32Zicsr: build-core
-	@$(SUBMAKE) -C $(RVCOMPLIANCE) variant RISCV_TARGET=algol RISCV_DEVICE=rv32ui RISCV_ISA=rv32Zicsr
+	@$(SUBMAKE) -C $(RVCOMPLIANCE) variant RISCV_TARGET=algol RISCV_DEVICE=rv32i RISCV_ISA=rv32Zicsr
 
 core-sim-compliance-rv32Zifencei: export TARGET_FOLDER=$(VCOREF)
 core-sim-compliance-rv32Zifencei: build-core
-	@$(SUBMAKE) -C $(RVCOMPLIANCE) variant RISCV_TARGET=algol RISCV_DEVICE=rv32ui RISCV_ISA=rv32Zifencei
+	@$(SUBMAKE) -C $(RVCOMPLIANCE) variant RISCV_TARGET=algol RISCV_DEVICE=rv32i RISCV_ISA=rv32Zifencei
+
+core-sim-compliance-rv32im: export TARGET_FOLDER=$(VCOREF)
+core-sim-compliance-rv32im: build-core
+	@$(SUBMAKE) -C $(RVCOMPLIANCE) variant RISCV_TARGET=algol RISCV_DEVICE=rv32im RISCV_ISA=rv32im
 
 # ----------------------------------------------------------
 # SOC
 soc-sim-compliance: export TARGET_FOLDER=$(VCOREF)
-soc-sim-compliance: soc-sim-compliance-rv32i soc-sim-compliance-rv32ui soc-sim-compliance-rv32Zicsr soc-sim-compliance-rv32Zifencei soc-sim-compliance-rv32mi
+soc-sim-compliance: soc-sim-compliance-rv32i soc-sim-compliance-rv32ui soc-sim-compliance-rv32Zicsr soc-sim-compliance-rv32Zifencei soc-sim-compliance-rv32mi soc-sim-compliance-rv32im
 
 soc-sim-compliance-rv32i: export TARGET_FOLDER=$(VSOCF)
 soc-sim-compliance-rv32i: build-soc .bootloader
@@ -128,19 +134,23 @@ soc-sim-compliance-rv32i: build-soc .bootloader
 
 soc-sim-compliance-rv32mi: export TARGET_FOLDER=$(VSOCF)
 soc-sim-compliance-rv32mi: build-soc .bootloader
-	@$(SUBMAKE) -C $(RVCOMPLIANCE) variant RISCV_TARGET=algolsoc RISCV_DEVICE=rv32mi RISCV_ISA=rv32mi
+	@$(SUBMAKE) -C $(RVCOMPLIANCE) variant RISCV_TARGET=algolsoc RISCV_DEVICE=rv32i RISCV_ISA=rv32mi
 
 soc-sim-compliance-rv32ui: export TARGET_FOLDER=$(VSOCF)
 soc-sim-compliance-rv32ui: build-soc .bootloader
-	@$(SUBMAKE) -C $(RVCOMPLIANCE) variant RISCV_TARGET=algolsoc RISCV_DEVICE=rv32ui RISCV_ISA=rv32ui
+	@$(SUBMAKE) -C $(RVCOMPLIANCE) variant RISCV_TARGET=algolsoc RISCV_DEVICE=rv32i RISCV_ISA=rv32ui
 
 soc-sim-compliance-rv32Zicsr: export TARGET_FOLDER=$(VSOCF)
 soc-sim-compliance-rv32Zicsr: build-soc .bootloader
-	@$(SUBMAKE) -C $(RVCOMPLIANCE) variant RISCV_TARGET=algolsoc RISCV_DEVICE=rv32ui RISCV_ISA=rv32Zicsr
+	@$(SUBMAKE) -C $(RVCOMPLIANCE) variant RISCV_TARGET=algolsoc RISCV_DEVICE=rv32i RISCV_ISA=rv32Zicsr
 
 soc-sim-compliance-rv32Zifencei: export TARGET_FOLDER=$(VSOCF)
 soc-sim-compliance-rv32Zifencei: build-soc .bootloader
-	@$(SUBMAKE) -C $(RVCOMPLIANCE) variant RISCV_TARGET=algolsoc RISCV_DEVICE=rv32ui RISCV_ISA=rv32Zifencei
+	@$(SUBMAKE) -C $(RVCOMPLIANCE) variant RISCV_TARGET=algolsoc RISCV_DEVICE=rv32i RISCV_ISA=rv32Zifencei
+
+soc-sim-compliance-rv32im: export TARGET_FOLDER=$(VSOCF)
+soc-sim-compliance-rv32im: build-soc .bootloader
+	@$(SUBMAKE) -C $(RVCOMPLIANCE) variant RISCV_TARGET=algolsoc RISCV_DEVICE=rv32im RISCV_ISA=rv32im
 
 # ----------------------------------------------------------
 # Dhrystone
